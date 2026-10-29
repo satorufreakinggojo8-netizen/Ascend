@@ -25,6 +25,8 @@ class BackupCodecTest {
             sleepInsightsEnabled = true,
             restTimerSoundEnabled = false,
             keepScreenOnDuringWorkout = false,
+            barWeightKg = 15.0,
+            barWeightLb = 35.0,
         )
         val routine = Fixtures.routine(
             name = "Upper A",
@@ -155,6 +157,16 @@ class BackupCodecTest {
         assertEquals(3, restored.profile.daysPerWeek)
         assertEquals(TrainingLocation.GYM, restored.profile.location)
         assertTrue(restored.settings.showProgressLevel)
+        assertEquals(20.0, restored.settings.barWeightKg, 1e-9)
+        assertEquals(45.0, restored.settings.barWeightLb, 1e-9)
+    }
+
+    @Test
+    fun `bar weights survive an export and import`() {
+        val restored = BackupCodec.decode(BackupCodec.encode(document()))
+
+        assertEquals(15.0, restored.settings.barWeightKg, 1e-9)
+        assertEquals(35.0, restored.settings.barWeightLb, 1e-9)
     }
 
     @Test

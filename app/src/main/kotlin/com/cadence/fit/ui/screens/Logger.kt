@@ -60,6 +60,7 @@ import com.cadence.fit.ui.components.EmptyState
 import com.cadence.fit.ui.components.ExercisePickerOverlay
 import com.cadence.fit.ui.components.FilterChip
 import com.cadence.fit.ui.components.InfoNote
+import com.cadence.fit.ui.components.PlateCalculatorSheet
 import com.cadence.fit.ui.components.PrimaryButton
 import com.cadence.fit.ui.components.SecondaryButton
 import com.cadence.fit.ui.components.SectionHeader
@@ -248,6 +249,10 @@ fun LoggerScreen(
                     unit = unit,
                     onUnitChange = { selected ->
                         viewModel.saveSettings(settings.copy(weightUnit = selected))
+                    },
+                    barWeight = settings.barWeight(unit),
+                    onBarWeightChange = { chosen ->
+                        viewModel.saveSettings(settings.withBarWeight(unit, chosen))
                     },
                     onOpenExercise = { onOpenExercise(current.exerciseId) },
                     onRestStarted = { seconds ->
@@ -448,6 +453,8 @@ private fun ExerciseLogger(
     slot: LogSlot,
     unit: WeightUnit,
     onUnitChange: (WeightUnit) -> Unit,
+    barWeight: Double,
+    onBarWeightChange: (Double) -> Unit,
     onOpenExercise: () -> Unit,
     onRestStarted: (Int) -> Unit,
     onToast: (String) -> Unit,
@@ -471,6 +478,7 @@ private fun ExerciseLogger(
     var rpe by remember(slot.exerciseId) { mutableStateOf<Double?>(null) }
     var note by remember(slot.exerciseId) { mutableStateOf("") }
     var editingSetId by remember(slot.exerciseId) { mutableStateOf<String?>(null) }
+    var showPlateCalculator by remember(slot.exerciseId) { mutableStateOf(false) }
 
     val logged = session.setsFor(slot.exerciseId).sortedBy { it.setIndex }
 
@@ -614,6 +622,11 @@ private fun ExerciseLogger(
                     previous?.let { previousSet -> weightDisplay = unit.display(previousSet.topWeightKg) }
                 },
             )
+            FilterChip(
+                label = "Plates",
+                selected = false,
+                onClick = { showPlateCalculator = true },
+            )
         }
 
         Spacer(Modifier.size(20.dp))
@@ -731,6 +744,21 @@ private fun ExerciseLogger(
                 },
             )
         }
+    }
+
+    if (showPlateCalculator) {
+        PlateCalculatorSheet(
+            initialWeight = unit.snap(weightDisplay),
+            unit = unit,
+            barWeight = barWeight,
+            onBarWeightChange = onBarWeightChange,
+            onUseWeight = { chosen ->
+                // Only the entry field changes; the set is still logged by the user.
+                weightDisplay = unit.snap(chosen)
+                editingSetId = null
+            },
+            onDismiss = { showPlateCalculator = false },
+        )
     }
 
     if (slot.warmupSets > 0) {

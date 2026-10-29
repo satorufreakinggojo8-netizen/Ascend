@@ -120,6 +120,8 @@ object BackupCodec {
         "sleepInsightsEnabled" to JsonValue.of(settings.sleepInsightsEnabled),
         "restTimerSoundEnabled" to JsonValue.of(settings.restTimerSoundEnabled),
         "keepScreenOnDuringWorkout" to JsonValue.of(settings.keepScreenOnDuringWorkout),
+        "barWeightKg" to JsonValue.of(settings.barWeightKg),
+        "barWeightLb" to JsonValue.of(settings.barWeightLb),
     )
 
     private fun routineJson(routine: Routine): JsonValue.Obj = JsonValue.ofObj(
@@ -217,6 +219,8 @@ object BackupCodec {
             sleepInsightsEnabled = json.bool("sleepInsightsEnabled") ?: false,
             restTimerSoundEnabled = json.bool("restTimerSoundEnabled") ?: true,
             keepScreenOnDuringWorkout = json.bool("keepScreenOnDuringWorkout") ?: true,
+            barWeightKg = json.double("barWeightKg")?.takeIf { it.isFinite() } ?: 20.0,
+            barWeightLb = json.double("barWeightLb")?.takeIf { it.isFinite() } ?: 45.0,
         )
     }
 

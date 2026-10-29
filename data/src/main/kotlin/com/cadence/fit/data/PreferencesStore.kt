@@ -54,6 +54,8 @@ class PreferencesStore(private val store: KeyValueStore) : SleepStateStore {
             sleepInsightsEnabled = store.getBoolean(KEY_SLEEP_INSIGHTS, false),
             restTimerSoundEnabled = store.getBoolean(KEY_REST_SOUND, true),
             keepScreenOnDuringWorkout = store.getBoolean(KEY_KEEP_SCREEN_ON, true),
+            barWeightKg = decimalOr(store.getString(KEY_BAR_KG), AppSettings().barWeightKg),
+            barWeightLb = decimalOr(store.getString(KEY_BAR_LB), AppSettings().barWeightLb),
         )
         set(value) {
             store.putString(KEY_UNIT, value.weightUnit.name)
@@ -61,6 +63,8 @@ class PreferencesStore(private val store: KeyValueStore) : SleepStateStore {
             store.putBoolean(KEY_SLEEP_INSIGHTS, value.sleepInsightsEnabled)
             store.putBoolean(KEY_REST_SOUND, value.restTimerSoundEnabled)
             store.putBoolean(KEY_KEEP_SCREEN_ON, value.keepScreenOnDuringWorkout)
+            store.putString(KEY_BAR_KG, value.barWeightKg.coerceIn(0.0, MAX_BAR_WEIGHT).toString())
+            store.putString(KEY_BAR_LB, value.barWeightLb.coerceIn(0.0, MAX_BAR_WEIGHT).toString())
         }
 
     /** Id of the workout currently in progress, so it survives process death. */
@@ -94,6 +98,10 @@ class PreferencesStore(private val store: KeyValueStore) : SleepStateStore {
         store.clear()
     }
 
+    /** A corrupt or hand-edited bar weight falls back instead of crashing the logger. */
+    private fun decimalOr(raw: String?, fallback: Double): Double =
+        raw?.toDoubleOrNull()?.takeIf { it.isFinite() }?.coerceIn(0.0, MAX_BAR_WEIGHT) ?: fallback
+
     private inline fun <reified T : Enum<T>> enumOr(name: String?, fallback: T): T =
         enumOrNull<T>(name) ?: fallback
 
@@ -117,6 +125,8 @@ class PreferencesStore(private val store: KeyValueStore) : SleepStateStore {
         const val KEY_SLEEP_INSIGHTS = "sleep_insights_enabled"
         const val KEY_REST_SOUND = "rest_timer_sound"
         const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
+        const val KEY_BAR_KG = "bar_weight_kg"
+        const val KEY_BAR_LB = "bar_weight_lb"
         const val KEY_ACTIVE_SESSION = "active_session_id"
         const val KEY_SLEEP_ENABLED = "sleep_sync_enabled"
         const val KEY_SLEEP_LAST_SYNC = "sleep_last_sync"
@@ -127,6 +137,8 @@ class PreferencesStore(private val store: KeyValueStore) : SleepStateStore {
         const val MIN_MINUTES = 15
         const val MAX_MINUTES = 120
         const val DEFAULT_MINUTES = 45
+        /** No real barbell is heavier than this; a corrupt value must not poison the UI. */
+        const val MAX_BAR_WEIGHT = 100.0
         private const val NOT_SET = -1L
     }
 }

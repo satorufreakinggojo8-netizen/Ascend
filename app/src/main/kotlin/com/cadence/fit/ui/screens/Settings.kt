@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,9 +24,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cadence.fit.domain.units.PlateCalculator
+import com.cadence.fit.domain.units.Weights
 import com.cadence.fit.domain.units.WeightUnit
 import com.cadence.fit.ui.CadenceViewModel
 import com.cadence.fit.ui.components.CadenceCard
+import com.cadence.fit.ui.components.FilterChip
 import com.cadence.fit.ui.components.CadenceIcon
 import com.cadence.fit.ui.components.CadenceTopBar
 import com.cadence.fit.ui.components.InfoNote
@@ -143,6 +147,31 @@ fun SettingsScreen(
                         viewModel.saveSettings(settings.copy(keepScreenOnDuringWorkout = checked))
                     },
                 )
+                Spacer(Modifier.size(12.dp))
+                ThinDivider()
+                Spacer(Modifier.size(12.dp))
+                Text(
+                    "Barbell weight for the plate calculator (${unit.abbreviation})",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Text(
+                    "Used only to work out plates. It never changes a logged weight.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.size(8.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PlateCalculator.barsFor(unit).forEach { option ->
+                        FilterChip(
+                            label = if (option == 0.0) "No bar" else
+                                "${Weights.formatAmount(option)} ${unit.abbreviation}",
+                            selected = kotlin.math.abs(settings.barWeight(unit) - option) < 1e-6,
+                            onClick = {
+                                viewModel.saveSettings(settings.withBarWeight(unit, option))
+                            },
+                        )
+                    }
+                }
             }
 
             CadenceCard {

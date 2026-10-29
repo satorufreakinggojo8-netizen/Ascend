@@ -31,7 +31,24 @@ data class AppSettings(
     val sleepInsightsEnabled: Boolean = false,
     val restTimerSoundEnabled: Boolean = true,
     val keepScreenOnDuringWorkout: Boolean = true,
-)
+    /**
+     * Bar weights are stored per unit rather than converted, because a 20 kg bar
+     * and a 45 lb bar are different objects. The plate calculator reads whichever
+     * one matches the active unit.
+     */
+    val barWeightKg: Double = 20.0,
+    val barWeightLb: Double = 45.0,
+) {
+    fun barWeight(unit: WeightUnit): Double = when (unit) {
+        WeightUnit.KG -> barWeightKg
+        WeightUnit.LB -> barWeightLb
+    }
+
+    fun withBarWeight(unit: WeightUnit, weight: Double): AppSettings = when (unit) {
+        WeightUnit.KG -> copy(barWeightKg = weight)
+        WeightUnit.LB -> copy(barWeightLb = weight)
+    }
+}
 
 /** Explicitly opt-in switches, surfaced on the privacy page. */
 data class PrivacySettings(

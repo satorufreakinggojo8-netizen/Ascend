@@ -43,6 +43,7 @@ Rules that keep it modular:
 | Plan templates (strength, muscle, general fitness, home) and active routine | `ui/screens/Plan.kt`, `domain/plan/PlanBuilder.kt` |
 | Create and edit routines, supersets, rep ranges, exercise swaps | `ui/screens/RoutineEditor.kt`, `domain/library/Substitutions.kt` |
 | Fast set logging, warm-ups, rest timer, RPE/notes, undo | `ui/screens/Logger.kt`, `domain/workout/WorkoutLogger.kt` |
+| Optional plate calculator with per-side loads, shortfall and next weight | `ui/components/PlateCalculatorSheet.kt`, `domain/units/PlateCalculator.kt` |
 | Post-workout summary: volume, records, comparison, muscle split | `ui/screens/SessionSummary.kt`, `domain/insight/SessionSummaryBuilder.kt` |
 | Exercise library with search, filters, instructions, artwork | `ui/screens/Library.kt`, `domain/library/*` |
 | Progression suggestions you can accept, edit or ignore | `domain/progression/ProgressionEngine.kt`, `ui/screens/ExerciseDetail.kt` |
@@ -88,7 +89,7 @@ release install.
 ## Tests
 
 ```bash
-./gradlew test          # 337 tests: 253 domain, 36 data, 30 integrations, 18 app
+./gradlew test          # 359 tests: 269 domain, 42 data, 30 integrations, 18 app
 ```
 
 They cover the parts that are easy to get subtly wrong:
@@ -97,6 +98,8 @@ They cover the parts that are easy to get subtly wrong:
 - training calendar: week generation, moving and skipping days, completed days immovable,
   session linking (including a workout finished after midnight), routine deletion
 - substitutions: muscle/pattern relevance, equipment filtering, unavailable options last
+- plate loading: kg and lb plate sets, bar weight, exact and unreachable targets,
+  shortfall and next weight, plate caps, empty sets, unit conversion for the log
 - session summary: measured volume, records only against previously logged values,
   comparison fallback, muscle shares
 - home model: today's planned workout, rest days, resume, post-workout session link

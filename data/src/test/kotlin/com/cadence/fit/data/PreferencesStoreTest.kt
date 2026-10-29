@@ -139,11 +139,46 @@ class PreferencesStoreTest {
             sleepInsightsEnabled = true,
             restTimerSoundEnabled = false,
             keepScreenOnDuringWorkout = false,
+            barWeightKg = 15.0,
+            barWeightLb = 35.0,
         )
 
         store.settings = settings
 
         assertEquals(settings, store.settings)
+    }
+
+    @Test
+    fun `bar weights are kept separate per unit`() {
+        store.settings = store.settings
+            .withBarWeight(WeightUnit.KG, 15.0)
+            .withBarWeight(WeightUnit.LB, 35.0)
+
+        val reloaded = PreferencesStore(keyValues).settings
+
+        assertEquals(15.0, reloaded.barWeight(WeightUnit.KG), 1e-9)
+        assertEquals(35.0, reloaded.barWeight(WeightUnit.LB), 1e-9)
+    }
+
+    @Test
+    fun `bar weights default to a standard bar and never exceed the cap`() {
+        val defaults = store.settings
+        assertEquals(20.0, defaults.barWeightKg, 1e-9)
+        assertEquals(45.0, defaults.barWeightLb, 1e-9)
+
+        keyValues.putString(PreferencesStore.KEY_BAR_KG, "5000")
+        assertEquals(PreferencesStore.MAX_BAR_WEIGHT, store.settings.barWeightKg, 1e-9)
+    }
+
+    @Test
+    fun `a corrupt bar weight falls back instead of breaking the logger`() {
+        keyValues.putString(PreferencesStore.KEY_BAR_KG, "heavy")
+        keyValues.putString(PreferencesStore.KEY_BAR_LB, "")
+
+        val settings = store.settings
+
+        assertEquals(20.0, settings.barWeightKg, 1e-9)
+        assertEquals(45.0, settings.barWeightLb, 1e-9)
     }
 
     @Test
