@@ -13,8 +13,12 @@ import com.cadence.fit.domain.math.WorkoutMath
 import com.cadence.fit.domain.model.Exercise
 import com.cadence.fit.domain.model.MuscleGroup
 import com.cadence.fit.domain.model.Routine
+import com.cadence.fit.domain.model.ScheduleStatus
+import com.cadence.fit.domain.model.ScheduledWorkout
 import com.cadence.fit.domain.model.SleepSummary
+import com.cadence.fit.domain.model.WeekTally
 import com.cadence.fit.domain.model.WorkoutSession
+import com.cadence.fit.domain.schedule.SchedulePlanner
 import com.cadence.fit.domain.progression.PlateauInsight
 import com.cadence.fit.domain.progression.ProgressionEngine
 import com.cadence.fit.domain.progression.ProgressionRecommendation
@@ -22,9 +26,10 @@ import com.cadence.fit.domain.time.TimeRanges
 import com.cadence.fit.domain.units.WeightUnit
 import com.cadence.fit.domain.workout.PreviousPerformance
 import com.cadence.fit.domain.workout.WorkoutLogger
+import java.time.LocalDate
 import java.time.ZoneId
 
-enum class NextActionType { RESUME_WORKOUT, START_WORKOUT, BUILD_PLAN }
+enum class NextActionType { RESUME_WORKOUT, START_WORKOUT, BUILD_PLAN, REST_DAY, VIEW_SESSION }
 
 /** The one clear thing the home screen asks the user to do. */
 data class NextAction(
@@ -32,17 +37,30 @@ data class NextAction(
     val title: String,
     val subtitle: String,
     val routineId: String?,
+    val sessionId: String? = null,
+)
+
+/** One square in the home screen's week strip. */
+data class HomeDay(
+    val date: LocalDate,
+    val letter: String,
+    val dayOfMonth: String,
+    val isToday: Boolean,
+    val status: ScheduleStatus?,
+    val routineName: String?,
 )
 
 data class HomeModel(
     val nextAction: NextAction,
-    val todayRoutine: Routine?,
     val summary: ProgressSummary,
     val lastCompleted: WorkoutSession?,
     val activeSession: WorkoutSession?,
     val muscleVolume: Map<MuscleGroup, Double>,
     val volumeTrend: List<Float>,
-    val recovery: RecoveryContext?,
+    val todaySlot: ScheduledWorkout?,
+    val weekDays: List<HomeDay>,
+    val weekTally: WeekTally,
+    val nextUpcoming: ScheduledWorkout?,
 )
 
 data class MuscleWindow(
@@ -71,10 +89,13 @@ data class ProgressModel(
     val volumeByWeek: List<Float>,
     val consistencyByWeek: List<Float>,
     val weekLabels: List<String>,
+    /** Epoch day of each week's Monday, so a selected bar can open its history. */
+    val weekStartEpochDays: List<Long>,
     val targetSessionsPerWeek: Int,
     val recentRecords: List<PersonalRecord>,
     val plateau: PlateauInsight?,
     val level: LevelAssessment?,
+    val muscleWindow: MuscleWindow,
 )
 
 /**
@@ -100,7 +121,6 @@ object ScreenModels {
         val active = state.activeSession
         val completed = state.completedSessions.sortedByDescending { it.completedAtMs }
         val lastCompleted = completed.firstOrNull()
-        val upcoming = nextRoutineOf(state.routines, lastCompleted)
         val summary = ChartData.summary(
             sessions = state.sessions,
             nowMs = nowMs,
@@ -108,6 +128,17 @@ object ScreenModels {
             zone = zone,
         )
         val window = muscleWindow(state, catalog, days = 14, nowMs = nowMs)
+        val today = com.cadence.fit.domain.time.TimeRanges.toLocalDate(nowMs, zone)
+        val weekStart = SchedulePlanner.weekStart(today)
+        val weekSlots = state.schedule.filter { !it.date.isBefore(weekStart) && !it.date.isAfter(weekStart.plusDays(6)) }
+        val todaySlot = state.schedule
+            .filter { it.date == today }
+            .minByOrNull { if (it.status == ScheduleStatus.COMPLETED) 1 else 0 }
+        val nextUpcoming = state.schedule
+            .filter { it.isOpen && it.date.isAfter(today) }
+            .minWithOrNull(compareBy({ it.date }, { it.id }))
+        val upcomingRoutine = todaySlot?.let { slot -> state.routines.firstOrNull { it.id == slot.routineId } }
+            ?: nextRoutineOf(state.routines, lastCompleted)
 
         val nextAction = when {
             active != null -> NextAction(
@@ -124,27 +155,82 @@ object ScreenModels {
                 routineId = null,
             )
 
+            todaySlot?.status == ScheduleStatus.COMPLETED && todaySlot.sessionId != null -> NextAction(
+                type = NextActionType.VIEW_SESSION,
+                title = "Today is done",
+                subtitle = "${todaySlot.routineName} · open the session you logged",
+                routineId = todaySlot.routineId,
+                sessionId = todaySlot.sessionId,
+            )
+
+            todaySlot?.status == ScheduleStatus.SKIPPED -> NextAction(
+                type = NextActionType.REST_DAY,
+                title = "Rest day",
+                subtitle = nextUpcoming?.let { "Next: ${dayLabel(it.date, today)} · ${it.routineName}" }
+                    ?: "Nothing else planned this week",
+                routineId = null,
+            )
+
+            todaySlot != null -> NextAction(
+                type = NextActionType.START_WORKOUT,
+                title = "Start ${todaySlot.routineName}",
+                subtitle = upcomingRoutine?.let { routine ->
+                    "Scheduled today · ${routine.exercises.size} exercises · about " +
+                        "${routine.estimatedMinutes()} min"
+                } ?: "Scheduled today",
+                routineId = todaySlot.routineId,
+            )
+
             else -> NextAction(
                 type = NextActionType.START_WORKOUT,
-                title = "Start ${upcoming?.name ?: "workout"}",
-                subtitle = upcoming?.let { routine ->
+                title = "Start ${upcomingRoutine?.name ?: "workout"}",
+                subtitle = nextUpcoming?.let { slot ->
+                    "Next planned: ${dayLabel(slot.date, today)} · ${slot.routineName}"
+                } ?: upcomingRoutine?.let { routine ->
                     "${routine.exercises.size} exercises · about ${routine.estimatedMinutes()} min"
                 } ?: "Freestyle session",
-                routineId = upcoming?.id,
+                routineId = upcomingRoutine?.id,
+            )
+        }
+
+        val weekDays = (0..6).map { offset ->
+            val date = weekStart.plusDays(offset.toLong())
+            val slot = weekSlots.filter { it.date == date }
+                .minByOrNull { if (it.status == ScheduleStatus.COMPLETED) 1 else 0 }
+            HomeDay(
+                date = date,
+                letter = date.dayOfWeek.name.take(1),
+                dayOfMonth = date.dayOfMonth.toString(),
+                isToday = date == today,
+                status = slot?.status,
+                routineName = slot?.routineName,
             )
         }
 
         return HomeModel(
             nextAction = nextAction,
-            todayRoutine = if (active != null) state.routines.firstOrNull { it.id == active.routineId } else upcoming,
             summary = summary,
             lastCompleted = lastCompleted,
             activeSession = active,
             muscleVolume = window.volumeByMuscle,
             volumeTrend = ChartData.volumeByWeek(state.sessions, com.cadence.fit.domain.insight.ChartWindow.TWELVE_WEEKS, nowMs, zone)
                 .map { it.volumeKg.toFloat() },
-            recovery = null,
+            todaySlot = todaySlot,
+            weekDays = weekDays,
+            weekTally = WeekTally(
+                planned = weekSlots.count { it.status == ScheduleStatus.PLANNED },
+                completed = weekSlots.count { it.status == ScheduleStatus.COMPLETED },
+                skipped = weekSlots.count { it.status == ScheduleStatus.SKIPPED },
+            ),
+            nextUpcoming = nextUpcoming,
         )
+    }
+
+    /** "today", "tomorrow" or a weekday, relative to [today]. */
+    fun dayLabel(date: LocalDate, today: LocalDate): String = when (date) {
+        today -> "today"
+        today.plusDays(1) -> "tomorrow"
+        else -> date.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }
     }
 
     fun muscleWindow(
@@ -232,6 +318,10 @@ object ScreenModels {
             volumeByWeek = volumeWeeks.map { it.volumeKg.toFloat() },
             consistencyByWeek = consistency.map { it.sessions.toFloat() },
             weekLabels = volumeWeeks.map { it.label },
+            weekStartEpochDays = volumeWeeks.map {
+                com.cadence.fit.domain.time.TimeRanges.toLocalDate(it.epochMs, zone).toEpochDay()
+            },
+            muscleWindow = muscleWindow(state, catalog, days = 28, nowMs = nowMs, zone = zone),
             targetSessionsPerWeek = state.profile.daysPerWeek,
             recentRecords = WorkoutMath.recentPersonalRecords(
                 state.completedSessions,

@@ -44,6 +44,7 @@ fun PlanScreen(
     onNewRoutine: () -> Unit,
     onStartRoutine: (String) -> Unit,
     onStartAndOpen: (String) -> Unit,
+    onOpenSchedule: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val profile = state.profile
@@ -62,8 +63,11 @@ fun PlanScreen(
         CadenceTopBar(
             title = "Plan",
             subtitle = "${profile.daysPerWeek} days a week · ${profile.goal.displayName}",
-            actions = listOf(CadenceIcon.Plus to onNewRoutine),
-            actionDescriptions = listOf("New routine"),
+            actions = listOf(
+                CadenceIcon.Calendar to onOpenSchedule,
+                CadenceIcon.Plus to onNewRoutine,
+            ),
+            actionDescriptions = listOf("This week's schedule", "New routine"),
         )
 
         Column(
@@ -88,6 +92,12 @@ fun PlanScreen(
                     "Built for ${profile.location.displayName.lowercase()} training with " +
                         "${profile.availableEquipment.size} kinds of equipment available. " +
                         "Rebuilding replaces the generated routines only.",
+                )
+
+                SecondaryButton(
+                    text = "This week's schedule",
+                    icon = CadenceIcon.Calendar,
+                    onClick = onOpenSchedule,
                 )
 
                 state.routines.forEach { routine ->

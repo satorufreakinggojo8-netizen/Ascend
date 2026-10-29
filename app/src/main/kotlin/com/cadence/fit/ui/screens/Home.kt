@@ -1,6 +1,8 @@
 package com.cadence.fit.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,6 +23,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cadence.fit.domain.insight.RecoveryContext
@@ -40,6 +45,7 @@ import com.cadence.fit.ui.components.PrimaryButton
 import com.cadence.fit.ui.components.SecondaryButton
 import com.cadence.fit.ui.components.SectionHeader
 import com.cadence.fit.ui.components.Sparkline
+import com.cadence.fit.domain.model.ScheduleStatus
 import com.cadence.fit.ui.components.StatTile
 import com.cadence.fit.ui.theme.CadenceTheme
 
@@ -57,6 +63,7 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onOpenLibrary: () -> Unit,
     onBuildPlan: () -> Unit,
+    onOpenSchedule: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val unit = state.settings.weightUnit
@@ -65,7 +72,9 @@ fun HomeScreen(
 
     val sleepStatus by viewModel.sleepStatus.collectAsStateWithLifecycle()
     val sleepSessions by viewModel.sleepSessions.collectAsStateWithLifecycle()
-    val sleepEnabled = state.settings.sleepInsightsEnabled
+    // The repository is the single source of truth for the opt-in; the settings
+    // screen mirrors it, so the home card cannot claim a connection that is off.
+    val sleepEnabled = sleepStatus.enabled
     val recovery = remember(sleepSessions, sleepEnabled, now) {
         ScreenModels.recovery(sleepSessions, sleepEnabled, now)
     }
@@ -107,13 +116,13 @@ fun HomeScreen(
                             awaitingStart = true
                             onStartWorkout(model.nextAction.routineId)
                         }
+                        NextActionType.REST_DAY -> onOpenSchedule()
+                        NextActionType.VIEW_SESSION -> model.nextAction.sessionId?.let(onOpenSession)
                     }
                 },
             )
 
-            if (model.todayRoutine != null && model.activeSession == null) {
-                TodayFocusCard(model)
-            }
+            WeekStripCard(model, onOpenSchedule)
 
             ProgressSummaryCard(model, unit, onOpenPlan)
 
@@ -179,6 +188,8 @@ private fun NextActionCard(action: NextAction, onAct: () -> Unit) {
             when (action.type) {
                 NextActionType.RESUME_WORKOUT -> Badge("In progress")
                 NextActionType.BUILD_PLAN -> Badge("Setup")
+                NextActionType.REST_DAY -> Badge("Rest")
+                NextActionType.VIEW_SESSION -> Badge("Logged")
                 NextActionType.START_WORKOUT -> Unit
             }
         }
@@ -196,35 +207,94 @@ private fun NextActionCard(action: NextAction, onAct: () -> Unit) {
                 NextActionType.RESUME_WORKOUT -> "Continue workout"
                 NextActionType.BUILD_PLAN -> "Answer a few questions"
                 NextActionType.START_WORKOUT -> "Start workout"
+                NextActionType.REST_DAY -> "See the week"
+                NextActionType.VIEW_SESSION -> "Open session"
             },
             icon = when (action.type) {
                 NextActionType.RESUME_WORKOUT -> CadenceIcon.Plan
                 NextActionType.BUILD_PLAN -> CadenceIcon.Edit
                 NextActionType.START_WORKOUT -> CadenceIcon.Timer
+                NextActionType.REST_DAY -> CadenceIcon.Calendar
+                NextActionType.VIEW_SESSION -> CadenceIcon.Check
             },
             onClick = onAct,
         )
     }
 }
 
+/** Seven quiet squares: the whole week at a glance, one tap from the calendar. */
 @Composable
-private fun TodayFocusCard(model: HomeModel) {
-    val routine = model.todayRoutine ?: return
-    CadenceCard {
-        Text("Up next", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.size(6.dp))
-        Text(routine.name, style = MaterialTheme.typography.titleMedium)
-        Text(
-            "${routine.focus} · ${routine.exercises.size} exercises · " +
-                "about ${routine.estimatedMinutes()} min",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.size(10.dp))
-        Text(
-            "${routine.workingSets} working sets · ${routine.warmupSets} warm-up sets",
-            style = MaterialTheme.typography.bodyMedium,
-        )
+private fun WeekStripCard(model: HomeModel, onOpenSchedule: () -> Unit) {
+    CadenceCard(onClick = onOpenSchedule) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("This week", style = MaterialTheme.typography.labelSmall)
+            Spacer(Modifier.weight(1f))
+            Text(
+                if (model.weekTally.isEmpty) "Not planned yet" else "${model.weekTally.completed} of ${model.weekTally.total} done",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.size(6.dp))
+            CadenceIcon(
+                CadenceIcon.ChevronRight,
+                size = 18.dp,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.size(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            model.weekDays.forEach { day ->
+                val marker = when (day.status) {
+                    ScheduleStatus.COMPLETED -> CadenceTheme.tones.success
+                    ScheduleStatus.PLANNED -> MaterialTheme.colorScheme.primary
+                    ScheduleStatus.SKIPPED -> MaterialTheme.colorScheme.outline
+                    null -> MaterialTheme.colorScheme.surfaceVariant
+                }
+                Column(
+                    Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        day.letter,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.size(6.dp))
+                    Box(
+                        Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(marker.copy(alpha = if (day.status == null) 1f else 0.18f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (day.status == ScheduleStatus.COMPLETED) {
+                            CadenceIcon(CadenceIcon.Check, size = 15.dp, tint = marker)
+                        } else {
+                            Text(
+                                day.dayOfMonth,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (day.isToday) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.size(5.dp))
+                    Box(
+                        Modifier
+                            .size(4.dp)
+                            .clip(CircleShape)
+                            .background(if (day.isToday) MaterialTheme.colorScheme.onSurface else Color.Transparent),
+                    )
+                }
+            }
+        }
+        if (model.weekTally.isEmpty) {
+            Spacer(Modifier.size(8.dp))
+            Text(
+                "No planned days yet. Open the week to lay out your sessions.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

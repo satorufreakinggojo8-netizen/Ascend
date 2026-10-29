@@ -43,13 +43,25 @@ fun HistoryScreen(
     viewModel: CadenceViewModel,
     onOpenSession: (String) -> Unit,
     onBack: () -> Unit,
+    /** Optional Monday of the week to show, used by the progress charts. */
+    weekStartEpochDay: Long? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val unit = state.settings.weightUnit
     val now = viewModel.nowMs()
     var pendingDelete by remember { mutableStateOf<String?>(null) }
+    var filterCleared by remember(weekStartEpochDay) { mutableStateOf(false) }
 
-    val completed = state.completedSessions.sortedByDescending { it.completedAtMs }
+    val filterWeek = weekStartEpochDay
+        ?.takeUnless { filterCleared }
+        ?.let { runCatching { java.time.LocalDate.ofEpochDay(it) }.getOrNull() }
+    val completed = state.completedSessions
+        .filter { session ->
+            if (filterWeek == null) return@filter true
+            val date = TimeRanges.toLocalDate(session.completedAtMs)
+            !date.isBefore(filterWeek) && !date.isAfter(filterWeek.plusDays(6))
+        }
+        .sortedByDescending { it.completedAtMs }
     val groups = remember(completed) {
         completed.groupBy { TimeRanges.formatMonth(it.completedAtMs) }
     }
@@ -57,8 +69,12 @@ fun HistoryScreen(
     Column(Modifier.fillMaxSize()) {
         CadenceTopBar(
             title = "History",
-            subtitle = "${completed.size} sessions · " +
-                Weights.formatVolume(completed.sumOf { it.totalVolumeKg }, unit),
+            subtitle = if (filterWeek != null) {
+                "Week of ${filterWeek.format(TimeRanges.SHORT_DAY_LABEL)} · ${completed.size} sessions"
+            } else {
+                "${completed.size} sessions · " +
+                    Weights.formatVolume(completed.sumOf { it.totalVolumeKg }, unit)
+            },
             onBack = onBack,
         )
 
@@ -69,10 +85,25 @@ fun HistoryScreen(
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            if (filterWeek != null) {
+                InfoNote(
+                    "Showing workouts from the week starting " +
+                        "${filterWeek.format(TimeRanges.DAY_LABEL)}.",
+                )
+                SecondaryButton(
+                    text = "Show all history",
+                    onClick = { filterCleared = true },
+                )
+            }
+
             if (completed.isEmpty()) {
                 EmptyState(
-                    title = "No finished workouts",
-                    message = "Finish a workout and it appears here with every set you logged.",
+                    title = if (filterWeek != null) "No workouts that week" else "No finished workouts",
+                    message = if (filterWeek != null) {
+                        "A week without a session is just a week off. Nothing is lost by it."
+                    } else {
+                        "Finish a workout and it appears here with every set you logged."
+                    },
                     icon = CadenceIcon.Calendar,
                 )
             } else {

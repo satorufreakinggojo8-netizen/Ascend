@@ -37,6 +37,8 @@ import com.cadence.fit.ui.components.EmptyState
 import com.cadence.fit.ui.components.FilterChip
 import com.cadence.fit.ui.components.InfoNote
 import com.cadence.fit.ui.components.LineChart
+import com.cadence.fit.ui.components.CadenceProgressBar
+import com.cadence.fit.ui.components.Badge
 import com.cadence.fit.ui.components.SecondaryButton
 import com.cadence.fit.ui.components.SectionHeader
 import com.cadence.fit.ui.components.StatTile
@@ -48,6 +50,8 @@ fun ProgressScreen(
     viewModel: CadenceViewModel,
     onOpenExercise: (String) -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenBodyMap: () -> Unit,
+    onOpenWeekHistory: (Long) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val unit = state.settings.weightUnit
@@ -125,7 +129,12 @@ fun ProgressScreen(
                         InfoNote(
                             "Week of ${model.weekLabels[index]}: " +
                                 Weights.formatVolume(model.volumeByWeek[index].toDouble(), unit) +
-                                " of working volume.",
+                                " of working volume, measured from your logged sets.",
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        SecondaryButton(
+                            text = "Open that week's sessions",
+                            onClick = { onOpenWeekHistory(model.weekStartEpochDays[index]) },
                         )
                     } else {
                         Text(
@@ -158,6 +167,11 @@ fun ProgressScreen(
                             "Week of ${model.weekLabels[index]}: " +
                                 "${model.consistencyByWeek[index].toInt()} of " +
                                 "${model.targetSessionsPerWeek} planned sessions.",
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        SecondaryButton(
+                            text = "Open that week's sessions",
+                            onClick = { onOpenWeekHistory(model.weekStartEpochDays[index]) },
                         )
                     } else {
                         Text(
@@ -247,6 +261,14 @@ fun ProgressScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
+                                if (record.type == PersonalRecordType.BEST_ESTIMATED_1RM) {
+                                    Badge(
+                                        text = "Estimate",
+                                        container = MaterialTheme.colorScheme.surfaceVariant,
+                                        content = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Spacer(Modifier.size(6.dp))
+                                }
                                 FilterChip(
                                     label = "Open",
                                     selected = false,
@@ -254,8 +276,17 @@ fun ProgressScreen(
                                 )
                             }
                         }
+                        Spacer(Modifier.size(10.dp))
+                        Text(
+                            "Weight, reps and volume are measured from logged sets. An estimated " +
+                                "1RM is a formula, not a tested maximum.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
+
+                MuscleBalanceCard(model, onOpenBodyMap)
 
                 model.plateau?.let { plateau -> PlateauCard(plateau) }
 
@@ -274,6 +305,67 @@ fun ProgressScreen(
             }
             Spacer(Modifier.size(16.dp))
         }
+    }
+}
+
+/** Which muscle groups got the work, and which did not. Informational only. */
+@Composable
+private fun MuscleBalanceCard(model: com.cadence.fit.ui.ProgressModel, onOpenBodyMap: () -> Unit) {
+    val window = model.muscleWindow
+    val ranking = ScreenModels.muscleRanking(window)
+    val total = ranking.sumOf { it.second }
+    CadenceCard {
+        SectionHeader(
+            title = "Muscle balance",
+            subtitle = "Share of working volume, last 4 weeks",
+        )
+        Spacer(Modifier.size(12.dp))
+        if (ranking.isEmpty() || total <= 0.0) {
+            Text(
+                "Log a few sets and this fills in with the muscles you have trained.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            ranking.take(5).forEach { (muscle, volume) ->
+                val share = volume / total
+                Row(
+                    Modifier.padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        muscle.displayName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(0.34f),
+                    )
+                    CadenceProgressBar(
+                        fraction = share.toFloat(),
+                        modifier = Modifier.weight(0.5f),
+                        height = 6.dp,
+                        color = CadenceTheme.tones.heatHigh,
+                    )
+                    Text(
+                        "${(share * 100).toInt()}%",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 10.dp),
+                    )
+                }
+            }
+            window.untrainedGroups.takeIf { it.isNotEmpty() }?.let { missed ->
+                Spacer(Modifier.size(10.dp))
+                val names = buildString {
+                    append(missed.take(4).joinToString(", ") { it.displayName.lowercase() })
+                    if (missed.size > 4) append(" and ${missed.size - 4} more")
+                }
+                InfoNote(
+                    "No logged work for $names in this window. That is a fact about your log, " +
+                        "not a problem to fix.",
+                )
+            }
+        }
+        Spacer(Modifier.size(12.dp))
+        SecondaryButton(text = "Open the body map", onClick = onOpenBodyMap)
     }
 }
 

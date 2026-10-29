@@ -20,7 +20,7 @@ pile of screens:
 | Module | Contents | Depends on |
 | --- | --- | --- |
 | `:domain` | Models, plan building, workout math, progression engine, charts, recovery, levels, sleep state machine, JSON/backup codec. Pure Kotlin, no Android. | — |
-| `:data` | SQLite persistence (workout history, routines, profile), preferences, backup file I/O. | `:domain` |
+| `:data` | SQLite persistence (workout history, routines, profile, training calendar), preferences, backup file I/O. | `:domain` |
 | `:integrations` | Health Connect sleep gateway and the adapter that reduces it to the domain's sleep contract. | `:domain` |
 | `:app` | Compose UI, navigation, view model, theming, procedural artwork. | all of the above |
 
@@ -38,14 +38,17 @@ Rules that keep it modular:
 | Area | Where |
 | --- | --- |
 | First-run setup (Gym/Home, equipment, experience, goal, days, session length) | `ui/screens/Onboarding.kt` |
-| Today's workout, one primary action, small summary | `ui/screens/Home.kt` |
+| Today's workout, one primary action, week strip, small summary | `ui/screens/Home.kt` |
+| Training calendar: plan a week, reschedule, skip, link a session | `ui/screens/Schedule.kt`, `domain/schedule/SchedulePlanner.kt` |
 | Plan templates (strength, muscle, general fitness, home) and active routine | `ui/screens/Plan.kt`, `domain/plan/PlanBuilder.kt` |
-| Create and edit routines, supersets, rep ranges | `ui/screens/RoutineEditor.kt` |
+| Create and edit routines, supersets, rep ranges, exercise swaps | `ui/screens/RoutineEditor.kt`, `domain/library/Substitutions.kt` |
 | Fast set logging, warm-ups, rest timer, RPE/notes, undo | `ui/screens/Logger.kt`, `domain/workout/WorkoutLogger.kt` |
+| Post-workout summary: volume, records, comparison, muscle split | `ui/screens/SessionSummary.kt`, `domain/insight/SessionSummaryBuilder.kt` |
 | Exercise library with search, filters, instructions, artwork | `ui/screens/Library.kt`, `domain/library/*` |
 | Progression suggestions you can accept, edit or ignore | `domain/progression/ProgressionEngine.kt`, `ui/screens/ExerciseDetail.kt` |
 | Plateau and deload guidance | same engine, surfaced on Progress |
-| Charts: strength, consistency, volume, with windows and tap-through | `ui/components/Charts.kt`, `domain/insight/ChartData.kt`, `ui/screens/Progress.kt` |
+| Charts: strength, consistency, volume, with windows and tap-through to the week in history | `ui/components/Charts.kt`, `domain/insight/ChartData.kt`, `ui/screens/Progress.kt` |
+| Muscle balance insight with an honest measured/estimate split | `ui/screens/Progress.kt`, `domain/math/WorkoutMath.kt` |
 | Front/back muscle map shaded by logged volume | `ui/art/MuscleBodyMap.kt`, `ui/screens/BodyMap.kt` |
 | Optional level tiers with an explained benchmark you can hide | `domain/insight/LevelAssessor.kt` |
 | Optional sleep context | `ui/screens/Sleep.kt`, `domain/sleep/SleepRepository.kt`, `docs/health-connect-nocta.md` |
@@ -85,12 +88,18 @@ release install.
 ## Tests
 
 ```bash
-./gradlew test          # 228 tests: 200 domain, 13 data, 15 integrations
+./gradlew test          # 337 tests: 253 domain, 36 data, 30 integrations, 18 app
 ```
 
 They cover the parts that are easy to get subtly wrong:
 
 - workout logging: set completion, warm-up vs working sets, undo, supersets, volume
+- training calendar: week generation, moving and skipping days, completed days immovable,
+  session linking (including a workout finished after midnight), routine deletion
+- substitutions: muscle/pattern relevance, equipment filtering, unavailable options last
+- session summary: measured volume, records only against previously logged values,
+  comparison fallback, muscle shares
+- home model: today's planned workout, rest days, resume, post-workout session link
 - progression: rep-range completion, deload and plateau detection, no automatic jumps
 - units: kg/lb conversion and rounding, volume formatting, duration formatting
 - charts and summaries: windows, bucketing, personal records, consistency counts

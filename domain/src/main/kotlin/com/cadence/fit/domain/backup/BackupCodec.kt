@@ -10,11 +10,14 @@ import com.cadence.fit.domain.model.ExperienceLevel
 import com.cadence.fit.domain.model.LoggedSet
 import com.cadence.fit.domain.model.Routine
 import com.cadence.fit.domain.model.RoutineExercise
+import com.cadence.fit.domain.model.ScheduleStatus
+import com.cadence.fit.domain.model.ScheduledWorkout
 import com.cadence.fit.domain.model.TrainingGoal
 import com.cadence.fit.domain.model.TrainingLocation
 import com.cadence.fit.domain.model.TrainingProfile
 import com.cadence.fit.domain.model.WorkoutSession
 import com.cadence.fit.domain.units.WeightUnit
+import java.time.LocalDate
 
 class BackupException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
@@ -32,11 +35,13 @@ data class BackupDocument(
     val settings: AppSettings,
     val routines: List<Routine>,
     val sessions: List<WorkoutSession>,
+    val schedule: List<ScheduledWorkout> = emptyList(),
 )
 
 object BackupCodec {
 
-    const val CURRENT_FORMAT_VERSION = 1
+    /** v2 added the training calendar; v1 backups still import with an empty one. */
+    const val CURRENT_FORMAT_VERSION = 2
     const val FORMAT_TAG = "cadence-backup"
     const val FILE_PREFIX = "cadence-backup"
 
@@ -74,6 +79,7 @@ object BackupCodec {
             settings = readSettings(rootObject.obj("settings")),
             routines = rootObject.array("routines")?.objects.orEmpty().map { readRoutine(it) },
             sessions = rootObject.array("sessions")?.objects.orEmpty().map { readSession(it) },
+            schedule = rootObject.array("schedule")?.objects.orEmpty().mapNotNull { readSchedule(it) },
         )
     }
 
@@ -95,6 +101,7 @@ object BackupCodec {
         "settings" to settingsJson(document.settings),
         "routines" to JsonValue.ofArray(document.routines.map { routineJson(it) }),
         "sessions" to JsonValue.ofArray(document.sessions.map { sessionJson(it) }),
+        "schedule" to JsonValue.ofArray(document.schedule.map { scheduleJson(it) }),
     )
 
     private fun profileJson(profile: TrainingProfile): JsonValue.Obj = JsonValue.ofObj(
@@ -161,6 +168,31 @@ object BackupCodec {
         "supersetGroup" to set.supersetGroup?.let { JsonValue.of(it) },
         "note" to JsonValue.of(set.note),
     )
+
+    private fun scheduleJson(slot: ScheduledWorkout): JsonValue.Obj = JsonValue.ofObj(
+        "id" to JsonValue.of(slot.id),
+        "dateEpochDay" to JsonValue.of(slot.date.toEpochDay()),
+        "routineId" to slot.routineId?.let { JsonValue.of(it) },
+        "routineName" to JsonValue.of(slot.routineName),
+        "status" to JsonValue.of(slot.status.name),
+        "sessionId" to slot.sessionId?.let { JsonValue.of(it) },
+        "completedAtMs" to slot.completedAtMs?.let { JsonValue.of(it) },
+    )
+
+    /** A day without a usable date is skipped rather than guessed at. */
+    private fun readSchedule(json: JsonValue.Obj): ScheduledWorkout? {
+        val epochDay = json.long("dateEpochDay") ?: return null
+        val date = runCatching { LocalDate.ofEpochDay(epochDay) }.getOrNull() ?: return null
+        return ScheduledWorkout(
+            id = json.string("id").orEmpty().ifEmpty { "slot-$epochDay" },
+            date = date,
+            routineId = json.string("routineId"),
+            routineName = json.string("routineName").orEmpty().ifEmpty { "Workout" },
+            status = enumOrNull<ScheduleStatus>(json.string("status")) ?: ScheduleStatus.PLANNED,
+            sessionId = json.string("sessionId"),
+            completedAtMs = json.long("completedAtMs"),
+        )
+    }
 
     private fun readProfile(json: JsonValue.Obj?): TrainingProfile {
         if (json == null) return TrainingProfile()

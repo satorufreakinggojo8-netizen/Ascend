@@ -45,7 +45,9 @@ import com.cadence.fit.ui.screens.OnboardingScreen
 import com.cadence.fit.ui.screens.PlanScreen
 import com.cadence.fit.ui.screens.ProgressScreen
 import com.cadence.fit.ui.screens.RoutineEditorScreen
+import com.cadence.fit.ui.screens.ScheduleScreen
 import com.cadence.fit.ui.screens.SessionDetailScreen
+import com.cadence.fit.ui.screens.SessionSummaryScreen
 import com.cadence.fit.ui.screens.SettingsScreen
 import com.cadence.fit.ui.screens.SleepScreen
 
@@ -53,12 +55,14 @@ object Routes {
     const val ONBOARDING = "onboarding"
     const val HOME = "home"
     const val PLAN = "plan"
+    const val SCHEDULE = "schedule"
     const val ROUTINE_EDITOR = "routine"
     const val LOGGER = "logger"
     const val LIBRARY = "library"
     const val EXERCISE = "exercise"
     const val HISTORY = "history"
     const val SESSION = "session"
+    const val SUMMARY = "summary"
     const val PROGRESS = "progress"
     const val BODY_MAP = "bodymap"
     const val SLEEP = "sleep"
@@ -72,6 +76,12 @@ object Routes {
         "$EXERCISE?exerciseId=$exerciseId&routineExerciseId=${routineExerciseId.orEmpty()}"
 
     fun session(sessionId: String) = "$SESSION?sessionId=$sessionId"
+
+    fun summary(sessionId: String) = "$SUMMARY?sessionId=$sessionId"
+
+    /** History, optionally narrowed to the week starting [weekStartEpochDay]. */
+    fun history(weekStartEpochDay: Long? = null) =
+        if (weekStartEpochDay == null) HISTORY else "$HISTORY?weekOf=$weekStartEpochDay"
 }
 
 private data class BottomDestination(val route: String, val label: String, val icon: CadenceIcon)
@@ -148,6 +158,7 @@ fun CadenceApp(viewModel: CadenceViewModel) {
                         onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                         onOpenLibrary = { navController.navigate(Routes.LIBRARY) },
                         onBuildPlan = { navController.navigate(Routes.ONBOARDING) },
+                        onOpenSchedule = { navController.navigate(Routes.SCHEDULE) },
                     )
                 }
 
@@ -158,6 +169,17 @@ fun CadenceApp(viewModel: CadenceViewModel) {
                         onNewRoutine = { navController.navigate(Routes.routineEditor(null)) },
                         onStartRoutine = { routineId -> viewModel.startSession(routineId) },
                         onStartAndOpen = { sessionId -> navController.navigate(Routes.logger(sessionId)) },
+                        onOpenSchedule = { navController.navigate(Routes.SCHEDULE) },
+                    )
+                }
+
+                composable(Routes.SCHEDULE) {
+                    ScheduleScreen(
+                        viewModel = viewModel,
+                        onBack = { navController.popBackStack() },
+                        onStartAndOpen = { sessionId -> navController.navigate(Routes.logger(sessionId)) },
+                        onOpenSession = { sessionId -> navController.navigate(Routes.session(sessionId)) },
+                        onEditRoutine = { routineId -> navController.navigate(Routes.routineEditor(routineId)) },
                     )
                 }
 
@@ -181,12 +203,33 @@ fun CadenceApp(viewModel: CadenceViewModel) {
                     LoggerScreen(
                         viewModel = viewModel,
                         sessionId = entry.arguments?.getString("sessionId").orEmpty(),
-                        onFinished = {
+                        onFinished = { savedSessionId ->
+                            if (savedSessionId == null) {
+                                navController.popBackStack()
+                            } else {
+                                navController.navigate(Routes.summary(savedSessionId)) {
+                                    popUpTo(Routes.HOME)
+                                }
+                            }
+                        },
+                        onBack = { navController.popBackStack() },
+                        onOpenExercise = { exerciseId -> navController.navigate(Routes.exercise(exerciseId)) },
+                    )
+                }
+
+                composable(
+                    route = "${Routes.SUMMARY}?sessionId={sessionId}",
+                    arguments = listOf(navArgument("sessionId") { type = NavType.StringType; defaultValue = "" }),
+                ) { entry ->
+                    SessionSummaryScreen(
+                        viewModel = viewModel,
+                        sessionId = entry.arguments?.getString("sessionId").orEmpty(),
+                        onDone = {
                             navController.navigate(Routes.HOME) {
                                 popUpTo(Routes.HOME) { inclusive = true }
                             }
                         },
-                        onBack = { navController.popBackStack() },
+                        onOpenSession = { sessionId -> navController.navigate(Routes.session(sessionId)) },
                         onOpenExercise = { exerciseId -> navController.navigate(Routes.exercise(exerciseId)) },
                     )
                 }
@@ -195,7 +238,7 @@ fun CadenceApp(viewModel: CadenceViewModel) {
                     LibraryScreen(
                         viewModel = viewModel,
                         onOpenExercise = { exerciseId -> navController.navigate(Routes.exercise(exerciseId)) },
-                        onOpenHistory = { navController.navigate(Routes.HISTORY) },
+                        onOpenHistory = { navController.navigate(Routes.history()) },
                     )
                 }
 
@@ -215,11 +258,15 @@ fun CadenceApp(viewModel: CadenceViewModel) {
                     )
                 }
 
-                composable(Routes.HISTORY) {
+                composable(
+                    route = "${Routes.HISTORY}?weekOf={weekOf}",
+                    arguments = listOf(navArgument("weekOf") { type = NavType.LongType; defaultValue = -1L }),
+                ) { entry ->
                     HistoryScreen(
                         viewModel = viewModel,
                         onOpenSession = { sessionId -> navController.navigate(Routes.session(sessionId)) },
                         onBack = { navController.popBackStack() },
+                        weekStartEpochDay = entry.arguments?.getLong("weekOf")?.takeIf { it >= 0L },
                     )
                 }
 
@@ -239,7 +286,9 @@ fun CadenceApp(viewModel: CadenceViewModel) {
                     ProgressScreen(
                         viewModel = viewModel,
                         onOpenExercise = { exerciseId -> navController.navigate(Routes.exercise(exerciseId)) },
-                        onOpenHistory = { navController.navigate(Routes.HISTORY) },
+                        onOpenHistory = { navController.navigate(Routes.history()) },
+                        onOpenBodyMap = { navController.navigate(Routes.BODY_MAP) },
+                        onOpenWeekHistory = { epochDay -> navController.navigate(Routes.history(epochDay)) },
                     )
                 }
 

@@ -49,6 +49,7 @@ fun SettingsScreen(
     onRestartOnboarding: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val sleepStatus by viewModel.sleepStatus.collectAsStateWithLifecycle()
     val settings = state.settings
     val profile = state.profile
     val unit = settings.weightUnit
@@ -152,7 +153,7 @@ fun SettingsScreen(
                 Spacer(Modifier.size(10.dp))
                 LabeledRow(
                     label = "Sleep reading",
-                    value = if (state.settings.sleepInsightsEnabled) "On" else "Off",
+                    value = if (sleepStatus.enabled) "On" else "Off",
                     onClick = onOpenSleep,
                 )
                 Spacer(Modifier.size(6.dp))
@@ -164,9 +165,9 @@ fun SettingsScreen(
                 SettingSwitchRow(
                     title = "Use sleep as recovery context",
                     subtitle = "Shows a gentle note on the home screen. Nothing is changed for you.",
-                    checked = settings.sleepInsightsEnabled,
+                    checked = sleepStatus.enabled,
                     onCheckedChange = { checked ->
-                        viewModel.saveSettings(settings.copy(sleepInsightsEnabled = checked))
+                        viewModel.setSleepSyncEnabled(checked)
                         if (checked) onOpenSleep()
                     },
                 )

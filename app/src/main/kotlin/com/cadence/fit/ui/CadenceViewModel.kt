@@ -21,6 +21,7 @@ import com.cadence.fit.domain.plan.PlanBuilder
 import com.cadence.fit.domain.sleep.SleepRepository
 import com.cadence.fit.domain.units.WeightUnit
 import com.cadence.fit.domain.workout.WorkoutLogger
+import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -58,11 +59,18 @@ class CadenceViewModel(
     init {
         viewModelScope.launch {
             repository.load()
+            // The calendar is filled lazily so existing installs (and imported
+            // backups without a plan) get a week without a migration prompt.
+            repository.ensureWeek()
             loadSleep()
         }
     }
 
     fun nowMs(): Long = SystemClock.nowMs()
+
+    fun today(): LocalDate = repository.today()
+
+    fun currentWeek(): LocalDate = repository.currentWeek()
 
     /** Stable id for a new routine or routine slot. */
     fun newId(): String = repository.newId()
@@ -87,6 +95,7 @@ class CadenceViewModel(
         val builder = PlanBuilder(catalog, UuidGenerator)
         val plan = builder.buildStarterPlan(saved, nowMs())
         repository.saveRoutines(plan.routines)
+        repository.ensureWeek()
         announce("Built ${plan.routines.size} routines for you")
     }
 
@@ -95,6 +104,7 @@ class CadenceViewModel(
         val builder = PlanBuilder(catalog, UuidGenerator)
         val plan = builder.buildStarterPlan(profile, nowMs())
         repository.saveRoutines(plan.routines)
+        repository.ensureWeek()
         announce("Plan rebuilt from your current settings")
     }
 
@@ -102,6 +112,60 @@ class CadenceViewModel(
         val builder = PlanBuilder(catalog, UuidGenerator)
         val plan = builder.buildStarterPlan(profile, nowMs())
         repository.saveRoutines(plan.routines)
+        repository.ensureWeek()
+    }
+
+    // --- Training calendar ----------------------------------------------------
+
+    fun ensureScheduleFor(weekStart: LocalDate) = viewModelScope.launch {
+        repository.ensureWeek(weekStart)
+    }
+
+    fun moveScheduled(slotId: String, date: LocalDate) = viewModelScope.launch {
+        if (repository.moveSlot(slotId, date)) {
+            announce("Moved to ${date.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }}")
+        }
+    }
+
+    fun skipScheduled(slotId: String) = viewModelScope.launch {
+        if (repository.skipSlot(slotId)) announce("Marked as skipped — nothing is removed from history")
+    }
+
+    fun reopenScheduled(slotId: String) = viewModelScope.launch {
+        if (repository.reopenSlot(slotId)) announce("Back on the plan")
+    }
+
+    fun deleteScheduled(slotId: String) = viewModelScope.launch {
+        if (repository.deleteScheduleSlot(slotId)) announce("Removed from the calendar")
+    }
+
+    /** Links a planned day to a workout that is already saved in history. */
+    fun completeScheduled(slotId: String) = viewModelScope.launch {
+        val slot = state.value.schedule.firstOrNull { it.id == slotId } ?: return@launch
+        val linkedIds = state.value.schedule.mapNotNull { it.sessionId }.toSet()
+        val session = state.value.completedSessions
+            .filter { candidate -> candidate.id !in linkedIds }
+            .filter { candidate -> slot.routineId == null || candidate.routineId == slot.routineId }
+            .minWithOrNull(
+                compareBy(
+                    { candidate ->
+                        val day = com.cadence.fit.domain.time.TimeRanges.toLocalDate(candidate.completedAtMs, com.cadence.fit.domain.time.TimeRanges.zone())
+                        kotlin.math.abs(java.time.temporal.ChronoUnit.DAYS.between(day, slot.date))
+                    },
+                    { candidate -> -candidate.completedAtMs },
+                ),
+            )
+        if (session == null) {
+            warn("No saved workout to link yet. Log the session and it will attach by itself.")
+            return@launch
+        }
+        if (repository.markSlotComplete(slotId, session.id, session.completedAtMs)) {
+            announce("Linked to ${session.routineName}")
+        }
+    }
+
+    fun clearPlannedSchedule() = viewModelScope.launch {
+        if (repository.clearPlannedSchedule()) announce("Planned days cleared")
     }
 
     fun saveRoutine(routine: Routine) = viewModelScope.launch {
@@ -222,12 +286,25 @@ class CadenceViewModel(
         if (mutableSleepStatus.value.isConnected) refreshSleepInternal()
     }
 
-    fun enableSleep() = viewModelScope.launch {
-        mutableSleepStatus.value = sleepRepository.enable()
+    fun enableSleep() = viewModelScope.launch { updateSleepStatus(sleepRepository.enable()) }
+
+    /**
+     * The sleep switch on the settings page and the sleep page both drive the same
+     * stored opt-in, so the two screens can never disagree about whether reading is
+     * on. Turning it off also clears the last-read time.
+     */
+    fun setSleepSyncEnabled(enabled: Boolean) = viewModelScope.launch {
+        if (enabled) {
+            updateSleepStatus(sleepRepository.enable())
+        } else {
+            updateSleepStatus(sleepRepository.disable())
+            mutableSleepSessions.value = emptyList()
+            announce("Sleep reading turned off. Nothing is read from Health Connect.")
+        }
     }
 
     fun recordSleepPermission(granted: Boolean) = viewModelScope.launch {
-        mutableSleepStatus.value = sleepRepository.recordPermission(granted)
+        updateSleepStatus(sleepRepository.recordPermission(granted))
         if (granted) {
             refreshSleepInternal()
         } else {
@@ -237,9 +314,18 @@ class CadenceViewModel(
     }
 
     fun disconnectSleep() = viewModelScope.launch {
-        mutableSleepStatus.value = sleepRepository.disable()
+        updateSleepStatus(sleepRepository.disable())
         mutableSleepSessions.value = emptyList()
         announce("Sleep sync turned off. Already-synced sessions are no longer read.")
+    }
+
+    private suspend fun updateSleepStatus(status: SleepConnectionStatus) {
+        mutableSleepStatus.value = status
+        // Keep the mirrored preference in step with the real opt-in.
+        val settings = state.value.settings
+        if (settings.sleepInsightsEnabled != status.enabled) {
+            saveSettings(settings.copy(sleepInsightsEnabled = status.enabled))
+        }
     }
 
     /** Called when the screen appears or the app resumes, since permission can change. */

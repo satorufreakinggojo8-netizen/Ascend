@@ -49,6 +49,15 @@ saw, offers "keep the plan as it is" as the default, and says it is not medical 
 It never claims sleep caused a result. Turning sync off, or deleting local data, removes
 the stored context immediately.
 
+## One switch, not two
+
+The settings page and the sleep page now drive the same stored opt-in
+(`SleepRepository`'s enabled flag), and the settings value is mirrored from it after
+every change. Before this, the settings switch only changed a preference while the sleep
+page read a different flag, so the home screen could show recovery context for a
+connection the sleep page reported as off. The home card is now gated on the real
+repository state, which also covers permission revocation on resume.
+
 ## What Nocta needs to do
 
 **This environment had no Nocta checkout** — no repository, source tree, APK or

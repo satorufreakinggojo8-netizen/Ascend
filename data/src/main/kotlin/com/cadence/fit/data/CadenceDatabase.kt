@@ -8,9 +8,11 @@ import android.database.sqlite.SQLiteOpenHelper
  * Local-first storage. Workout history lives here and nothing is sent anywhere:
  * the app has no network code at all.
  *
- * Note for future work: this release is schema version 1, so `onUpgrade` is never
- * reached yet. Before shipping a schema change, replace the rebuild below with a
- * real migration so a user's history is never dropped.
+ * Schema history:
+ * - v1: routines, routine slots, sessions, logged sets.
+ * - v2: the training calendar (`schedule`).
+ *
+ * Upgrades are additive so an existing user's history is never dropped.
  */
 class CadenceDatabase(context: Context) : SQLiteOpenHelper(
     context.applicationContext,
@@ -25,25 +27,36 @@ class CadenceDatabase(context: Context) : SQLiteOpenHelper(
 
     override fun onCreate(db: SQLiteDatabase) {
         SCHEMA.forEach(db::execSQL)
+        SCHEDULE_SCHEMA.forEach(db::execSQL)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        TABLES.forEach { db.execSQL("DROP TABLE IF EXISTS $it") }
-        onCreate(db)
+        // Additive migrations only: dropping tables here would erase real training
+        // history for anyone who updates the app.
+        if (oldVersion < 2) {
+            SCHEDULE_SCHEMA.forEach(db::execSQL)
+        }
     }
 
     companion object {
         const val NAME = "cadence.db"
-        const val VERSION = 1
+        const val VERSION = 2
 
         const val TABLE_ROUTINES = "routines"
         const val TABLE_ROUTINE_EXERCISES = "routine_exercises"
         const val TABLE_SESSIONS = "sessions"
         const val TABLE_LOGGED_SETS = "logged_sets"
+        const val TABLE_SCHEDULE = "schedule"
 
         const val COL_ID = "id"
 
-        val TABLES = listOf(TABLE_LOGGED_SETS, TABLE_SESSIONS, TABLE_ROUTINE_EXERCISES, TABLE_ROUTINES)
+        val TABLES = listOf(
+            TABLE_LOGGED_SETS,
+            TABLE_SESSIONS,
+            TABLE_ROUTINE_EXERCISES,
+            TABLE_ROUTINES,
+            TABLE_SCHEDULE,
+        )
 
         private val SCHEMA = listOf(
             """
@@ -105,6 +118,22 @@ class CadenceDatabase(context: Context) : SQLiteOpenHelper(
             """.trimIndent(),
             "CREATE INDEX idx_logged_sets_session ON $TABLE_LOGGED_SETS(session_id, set_index)",
             "CREATE INDEX idx_logged_sets_exercise ON $TABLE_LOGGED_SETS(exercise_id)",
+        )
+
+        /** Added in schema v2; also applied by the v1 to v2 upgrade. */
+        private val SCHEDULE_SCHEMA = listOf(
+            """
+            CREATE TABLE $TABLE_SCHEDULE (
+                $COL_ID TEXT PRIMARY KEY NOT NULL,
+                date_epoch_day INTEGER NOT NULL,
+                routine_id TEXT,
+                routine_name TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'PLANNED',
+                session_id TEXT,
+                completed_at INTEGER
+            )
+            """.trimIndent(),
+            "CREATE INDEX idx_schedule_date ON $TABLE_SCHEDULE(date_epoch_day)",
         )
     }
 }

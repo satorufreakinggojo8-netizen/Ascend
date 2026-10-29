@@ -41,6 +41,7 @@ import com.cadence.fit.ui.components.PrimaryButton
 import com.cadence.fit.ui.components.SecondaryButton
 import com.cadence.fit.ui.components.SectionHeader
 import com.cadence.fit.ui.components.StepButton
+import com.cadence.fit.ui.components.SubstitutionOverlay
 import com.cadence.fit.ui.components.ThinDivider
 
 /**
@@ -70,6 +71,7 @@ fun RoutineEditorScreen(
         mutableStateListOf<RoutineExercise>().also { list -> existing?.exercises?.let(list::addAll) }
     }
     var showPicker by remember { mutableStateOf(false) }
+    var swapSlotIndex by remember { mutableStateOf<Int?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
     val isNew = existing == null
@@ -168,6 +170,7 @@ fun RoutineEditorScreen(
                                 " · " + item.equipment.displayName
                         }.orEmpty(),
                         onOpenExercise = { onOpenExercise(slot.exerciseId) },
+                        onSwap = { swapSlotIndex = index },
                         onChange = { updated -> slots[index] = updated },
                         onMoveUp = {
                             if (index > 0) {
@@ -259,6 +262,31 @@ fun RoutineEditorScreen(
             onDismiss = { showPicker = false },
         )
     }
+
+    val swapIndex = swapSlotIndex
+    if (swapIndex != null) {
+        val slot = slots.getOrNull(swapIndex)
+        val targetExercise = slot?.let { viewModel.catalog.byId(it.exerciseId) }
+        if (slot == null || targetExercise == null) {
+            swapSlotIndex = null
+        } else {
+            SubstitutionOverlay(
+                target = targetExercise,
+                catalog = viewModel.catalog,
+                availableEquipment = state.profile.availableEquipment,
+                experience = state.profile.experience,
+                excludeIds = slots.map { it.exerciseId }.toSet(),
+                onPick = { replacement ->
+                    // The slot keeps its id, sets, reps and rest, so anything already
+                    // logged for the old movement stays in history.
+                    slots[swapIndex] = slot.copy(exerciseId = replacement.id)
+                    swapSlotIndex = null
+                    error = null
+                },
+                onDismiss = { swapSlotIndex = null },
+            )
+        }
+    }
 }
 
 @Composable
@@ -268,6 +296,7 @@ private fun SlotEditor(
     exerciseName: String,
     muscleLine: String,
     onOpenExercise: () -> Unit,
+    onSwap: () -> Unit,
     onChange: (RoutineExercise) -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
@@ -357,6 +386,7 @@ private fun SlotEditor(
                 onClick = onMoveUp,
             )
             FilterChip(label = "Move down", selected = false, onClick = onMoveDown)
+            FilterChip(label = "Swap", selected = false, onClick = onSwap)
             FilterChip(label = "About", selected = false, onClick = onOpenExercise)
             FilterChip(label = "Remove", selected = false, onClick = onRemove)
         }

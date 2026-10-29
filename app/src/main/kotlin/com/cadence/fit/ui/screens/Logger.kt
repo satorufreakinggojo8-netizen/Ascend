@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -89,7 +90,8 @@ private data class LogSlot(
 fun LoggerScreen(
     viewModel: CadenceViewModel,
     sessionId: String,
-    onFinished: () -> Unit,
+    /** Called with the saved session id, or null when the workout was discarded. */
+    onFinished: (String?) -> Unit,
     onBack: () -> Unit,
     onOpenExercise: (String) -> Unit,
 ) {
@@ -171,6 +173,38 @@ fun LoggerScreen(
 
         Column(Modifier.padding(horizontal = 20.dp)) {
             CadenceProgressBar(fraction = progress?.fraction ?: 0f)
+            if (current != null) {
+                Spacer(Modifier.size(6.dp))
+                val loggedWorking = session.setsFor(current.exerciseId).count { !it.isWarmup }
+                val phase = when {
+                    restTotal > 0 && restRemaining > 0 -> "Resting · ${Durations.clock(restRemaining)}"
+                    loggedWorking >= current.targetSets && current.targetSets > 0 ->
+                        "Target reached · $loggedWorking working sets"
+                    loggedWorking == 0 && current.warmupSets > 0 ->
+                        "Warm-up first · then ${current.targetSets} working sets"
+                    else -> "Working set ${loggedWorking + 1} of ${current.targetSets}"
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (loggedWorking >= current.targetSets && current.targetSets > 0) {
+                                    CadenceTheme.tones.success
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                },
+                            ),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        phase,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
 
         if (restTotal > 0) {
@@ -233,14 +267,25 @@ fun LoggerScreen(
                 InfoNote(message, emphasise = true)
             }
 
-            Spacer(Modifier.size(8.dp))
+            Spacer(Modifier.size(20.dp))
+        }
+
+        // Kept out of the scrolling area so the end of a workout is reachable
+        // one-handed, however far down the set list the user is.
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(horizontal = 20.dp, vertical = 10.dp),
+        ) {
+            ThinDivider()
+            Spacer(Modifier.size(10.dp))
             PrimaryButton(
                 text = "Finish workout",
                 icon = CadenceIcon.Check,
                 enabled = session.sets.isNotEmpty(),
                 onClick = { pendingFinish = true },
             )
-            Spacer(Modifier.size(20.dp))
         }
     }
 
@@ -268,7 +313,7 @@ fun LoggerScreen(
             onConfirm = {
                 pendingFinish = false
                 viewModel.finishSession(sessionId)
-                onFinished()
+                onFinished(sessionId)
             },
             onDismiss = { pendingFinish = false },
         )
@@ -282,7 +327,7 @@ fun LoggerScreen(
             onConfirm = {
                 pendingDiscard = false
                 viewModel.discardSession(sessionId)
-                onFinished()
+                onFinished(null)
             },
             onDismiss = { pendingDiscard = false },
         )

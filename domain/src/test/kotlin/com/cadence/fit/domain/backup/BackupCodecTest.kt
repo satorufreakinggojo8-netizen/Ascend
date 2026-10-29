@@ -5,9 +5,12 @@ import com.cadence.fit.domain.Fixtures.NOW
 import com.cadence.fit.domain.model.AppSettings
 import com.cadence.fit.domain.model.Equipment
 import com.cadence.fit.domain.model.ExperienceLevel
+import com.cadence.fit.domain.model.ScheduleStatus
+import com.cadence.fit.domain.model.ScheduledWorkout
 import com.cadence.fit.domain.model.TrainingGoal
 import com.cadence.fit.domain.model.TrainingLocation
 import com.cadence.fit.domain.units.WeightUnit
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -55,6 +58,24 @@ class BackupCodecTest {
             settings = settings,
             routines = listOf(routine),
             sessions = listOf(session),
+            schedule = listOf(
+                ScheduledWorkout(
+                    id = "slot-1",
+                    date = LocalDate.of(2023, 11, 13),
+                    routineId = routine.id,
+                    routineName = routine.name,
+                    status = ScheduleStatus.COMPLETED,
+                    sessionId = session.id,
+                    completedAtMs = NOW,
+                ),
+                ScheduledWorkout(
+                    id = "slot-2",
+                    date = LocalDate.of(2023, 11, 15),
+                    routineId = routine.id,
+                    routineName = routine.name,
+                    status = ScheduleStatus.SKIPPED,
+                ),
+            ),
         )
     }
 
@@ -70,7 +91,7 @@ class BackupCodecTest {
     fun `the encoded file declares its format and version`() {
         val text = BackupCodec.encode(document())
         assertTrue(text.contains("\"format\": \"cadence-backup\""))
-        assertTrue(text.contains("\"formatVersion\": 1"))
+        assertTrue(text.contains("\"formatVersion\": 2"))
     }
 
     @Test
@@ -169,6 +190,49 @@ class BackupCodecTest {
     @Test
     fun `a suggested file name is derived from the export time`() {
         assertEquals("cadence-backup-1700000000000.json", BackupCodec.suggestedFileName(NOW))
+    }
+
+    @Test
+    fun `planned days survive an export and import`() {
+        val restored = BackupCodec.decode(BackupCodec.encode(document()))
+
+        assertEquals(2, restored.schedule.size)
+        val completed = restored.schedule.first { it.id == "slot-1" }
+        assertEquals(LocalDate.of(2023, 11, 13), completed.date)
+        assertEquals(ScheduleStatus.COMPLETED, completed.status)
+        assertEquals("session-1", completed.sessionId)
+        assertEquals(NOW, completed.completedAtMs)
+        assertEquals(ScheduleStatus.SKIPPED, restored.schedule.first { it.id == "slot-2" }.status)
+    }
+
+    @Test
+    fun `a version one backup imports with an empty calendar`() {
+        val restored = BackupCodec.decode(
+            """{"format":"cadence-backup","formatVersion":1,"routines":[],"sessions":[]}""",
+        )
+
+        assertTrue(restored.schedule.isEmpty())
+        assertEquals(1, restored.formatVersion)
+    }
+
+    @Test
+    fun `a scheduled day with an unreadable date is skipped`() {
+        val text = """
+            {
+              "format": "cadence-backup",
+              "formatVersion": 2,
+              "schedule": [
+                {"id": "bad", "routineName": "Upper"},
+                {"id": "good", "dateEpochDay": 19674, "routineName": "Lower"}
+              ]
+            }
+        """.trimIndent()
+
+        val restored = BackupCodec.decode(text)
+
+        assertEquals(1, restored.schedule.size)
+        assertEquals("good", restored.schedule.single().id)
+        assertEquals(LocalDate.ofEpochDay(19674), restored.schedule.single().date)
     }
 
     @Test
