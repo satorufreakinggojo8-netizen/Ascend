@@ -88,6 +88,24 @@ object WorkoutLogger {
         (session.sets.filter { it.exerciseId == exerciseId }.maxOfOrNull { it.setIndex } ?: 0) + 1
 
     /**
+     * The working weight that warm-up percentages should be measured against.
+     *
+     * Warm-up sets are deliberately excluded: they are a fraction of the working
+     * weight, so feeding one back in as the base would shrink the next suggestion
+     * (100 → 50 → 25 …). The most recent working load in this session wins, then
+     * the previous session, then zero for a brand-new exercise.
+     */
+    fun workingWeightKg(
+        session: WorkoutSession,
+        exerciseId: String,
+        previous: PreviousPerformance?,
+    ): Double = session.sets
+        .filter { it.exerciseId == exerciseId && !it.isWarmup }
+        .maxOfOrNull { it.weightKg }
+        ?: previous?.topWeightKg
+        ?: 0.0
+
+    /**
      * Pre-fill values for the next set. Repeats the set just logged in this
      * session, otherwise falls back to the previous session's top weight and the
      * top of the routine's rep range.
@@ -111,9 +129,7 @@ object WorkoutLogger {
             )
         }
 
-        val workingWeight = logged.filterNot { it.isWarmup }.maxOfOrNull { it.weightKg }
-            ?: previous?.topWeightKg
-            ?: 0.0
+        val workingWeight = workingWeightKg(session, exerciseId, previous)
 
         // Adding a warm-up set after working sets: start at the first rung of the
         // ladder rather than reusing the working weight.

@@ -89,7 +89,7 @@ release install.
 ## Tests
 
 ```bash
-./gradlew test          # 317 tests: 272 domain, 21 data, 15 integrations, 9 app
+./gradlew test          # 321 tests: 276 domain, 21 data, 15 integrations, 9 app
 ```
 
 They cover the parts that are easy to get subtly wrong:
@@ -131,7 +131,7 @@ the smallest change Nocta needs if it does not publish yet.
 
 ## What is verified, and what needs a device
 
-Verified here: all 317 unit tests pass, `assembleDebug` produces an installable APK, and
+Verified here: all 321 unit tests pass, `assembleDebug` produces an installable APK, and
 the whole app module compiles against the pinned dependency set. The calendar is covered
 by planner tests (generation, moving, skipping, session linking, midnight boundaries)
 and the home model is tested against a fixed clock and timezone.

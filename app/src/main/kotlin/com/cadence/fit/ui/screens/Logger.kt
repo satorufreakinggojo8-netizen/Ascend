@@ -495,6 +495,19 @@ private fun ExerciseLogger(
             displayUnit = unit
         }
     }
+
+    // Warm-up percentages are relative to the working weight, so the ladder must
+    // not be anchored to the warm-up load currently sitting in the field. Without
+    // this, tapping a suggested step turned 100 kg into 50, then 25, then 12.5.
+    var workingWeightKg by remember(slot.exerciseId) {
+        mutableStateOf(WorkoutLogger.workingWeightKg(session, slot.exerciseId, previous))
+    }
+    LaunchedEffect(slot.exerciseId, weightDisplay, isWarmup) {
+        if (!isWarmup) {
+            val candidate = unit.toKilograms(unit.snap(weightDisplay))
+            if (candidate > 0.0) workingWeightKg = candidate
+        }
+    }
     var reps by remember(slot.exerciseId, isWarmup) { mutableIntStateOf(defaults.reps) }
     var rpe by remember(slot.exerciseId) { mutableStateOf<Double?>(null) }
     var note by remember(slot.exerciseId) { mutableStateOf("") }
@@ -738,7 +751,6 @@ private fun ExerciseLogger(
                             WorkoutLogger.recommendedRestSeconds(set, slot.routineExercise),
                         )
                     }
-                    note = ""
                 } else {
                     viewModel.updateSet(
                         sessionId = session.id,
@@ -751,7 +763,10 @@ private fun ExerciseLogger(
                     )
                     editingSetId = null
                 }
+                // The note belongs to the set that was just saved, so it must not
+                // quietly ride along into the next one.
                 rpe = null
+                note = ""
             },
         )
         if (editingSetId != null) {
@@ -784,7 +799,7 @@ private fun ExerciseLogger(
 
     if (slot.warmupSets > 0) {
         WarmupCard(
-            workingWeightKg = unit.toKilograms(weightDisplay),
+            workingWeightKg = workingWeightKg,
             slot = slot,
             unit = unit,
             onUse = { step ->

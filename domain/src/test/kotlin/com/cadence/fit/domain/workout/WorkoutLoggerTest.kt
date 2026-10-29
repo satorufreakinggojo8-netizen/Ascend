@@ -242,6 +242,69 @@ class WorkoutLoggerTest {
     }
 
     @Test
+    fun `the working weight baseline ignores warm-up sets`() {
+        val session = Fixtures.session(
+            id = "current",
+            atMs = NOW,
+            sets = listOf(
+                Fixtures.set(exerciseId, 50.0, 8, sessionId = "current", setIndex = 1, isWarmup = true),
+                Fixtures.set(exerciseId, 100.0, 5, sessionId = "current", setIndex = 2),
+            ),
+            ended = false,
+        )
+
+        assertEquals(100.0, WorkoutLogger.workingWeightKg(session, exerciseId, null), 1e-9)
+    }
+
+    @Test
+    fun `the working weight baseline falls back to the last completed session`() {
+        val previous = WorkoutLogger.previousPerformance(
+            listOf(finishedSession("past", daysAgo = 5, weightKg = 80.0, reps = 8)),
+            exerciseId,
+            NOW,
+        )!!
+        val empty = Fixtures.session(id = "current", atMs = NOW, sets = emptyList(), ended = false)
+
+        assertEquals(80.0, WorkoutLogger.workingWeightKg(empty, exerciseId, previous), 1e-9)
+        // Without any history for this exercise there is nothing to anchor to.
+        assertEquals(0.0, WorkoutLogger.workingWeightKg(empty, exerciseId, null), 1e-9)
+    }
+
+    @Test
+    fun `a brand-new exercise has no baseline to build a ladder from`() {
+        val session = Fixtures.session(
+            id = "current",
+            atMs = NOW,
+            sets = listOf(
+                Fixtures.set(exerciseId, 40.0, 8, sessionId = "current", setIndex = 1, isWarmup = true),
+            ),
+            ended = false,
+        )
+
+        assertEquals(0.0, WorkoutLogger.workingWeightKg(session, exerciseId, null), 1e-9)
+    }
+
+    @Test
+    fun `loading a warm-up set does not shrink the warm-up ladder`() {
+        val session = Fixtures.session(
+            id = "current",
+            atMs = NOW,
+            sets = listOf(
+                Fixtures.set(exerciseId, 50.0, 8, sessionId = "current", setIndex = 1, isWarmup = true),
+                Fixtures.set(exerciseId, 70.0, 5, sessionId = "current", setIndex = 2, isWarmup = true),
+                Fixtures.set(exerciseId, 100.0, 5, sessionId = "current", setIndex = 3),
+            ),
+            ended = false,
+        )
+        val workingWeight = WorkoutLogger.workingWeightKg(session, exerciseId, null)
+
+        val plan = WorkoutLogger.warmupPlan(workingWeight, warmupSets = 3, unit = WeightUnit.KG)
+
+        assertEquals(100.0, workingWeight, 1e-9)
+        assertEquals(listOf(50.0, 70.0, 85.0), plan.map { it.weightKg })
+    }
+
+    @Test
     fun `rest follows the routine and adapts to the set that was logged`() {
         val routineExercise = Fixtures.routineExercise(exerciseId, repRange = 3..5, restSeconds = 150)
 
