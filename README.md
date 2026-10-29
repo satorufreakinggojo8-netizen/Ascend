@@ -127,23 +127,34 @@ the smallest change Nocta needs if it does not publish yet.
 
 ## What is verified, and what needs a device
 
-Verified here: all unit tests pass, `assembleDebug` produces an installable APK, and the
-whole app module compiles against the pinned dependency set.
+Verified here: all 337 unit tests pass, `assembleDebug` produces an installable APK, and
+the whole app module compiles against the pinned dependency set. The calendar is covered
+by planner tests (generation, moving, skipping, session linking, midnight boundaries)
+and the home model is tested against a fixed clock and timezone.
 
 Not verifiable in this environment (no emulator, no Health Connect provider, no Nocta
-build): rendering on a physical screen, the real Health Connect permission dialog, and
-reading real sleep sessions. The steps to check those are in the integration note.
+build): rendering on a physical screen, the real Health Connect permission dialog, the
+SQLite migration on a device that already has data, and reading real sleep sessions.
+The steps to check those are in the integration note.
 
 ## Publishing
 
-This is a standalone local Git repository. To publish it:
+This is a standalone local Git repository. Its history is on `master` (initial commit)
+and `feature/cadence-training-upgrades` (the training upgrades). No hosted remote exists
+yet because this machine has no GitHub authentication: `gh` is not installed, there is
+no `GH_TOKEN`/`GITHUB_TOKEN`, no SSH key, and `git credential fill` cannot find a stored
+credential. To publish:
 
 ```bash
-cd <this directory>
-git remote add origin git@github.com:<your-account>/cadence.git
+# 1. Create an empty private repository named cadence-fit on GitHub, then:
 git branch -M main
+git remote add origin git@github.com:<your-account>/cadence-fit.git
 git push -u origin main
+git push -u origin feature/cadence-training-upgrades
+
+# 2. Open the pull request (web UI, or with the GitHub CLI:
+#    gh pr create --base main --head feature/cadence-training-upgrades --fill)
 ```
 
-Create the empty repository on GitHub first; no credentials for a hosted remote were
-available here.
+If you use HTTPS instead of SSH, `git push` will prompt for a personal access token the
+first time and the credential manager will store it.
