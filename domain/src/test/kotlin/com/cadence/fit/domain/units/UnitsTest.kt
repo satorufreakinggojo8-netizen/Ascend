@@ -55,6 +55,31 @@ class UnitsTest {
     }
 
     @Test
+    fun `switching units converts the typed amount instead of reinterpreting it`() {
+        // The bug this guards: 100 kg must not become 100 lb when the toggle moves.
+        assertEquals(220.5, Weights.convertAmount(100.0, WeightUnit.KG, WeightUnit.LB), 1e-9)
+        assertEquals("220.5", Weights.formatAmount(Weights.convertAmount(100.0, WeightUnit.KG, WeightUnit.LB)))
+        assertEquals(102.0, Weights.convertAmount(225.0, WeightUnit.LB, WeightUnit.KG), 1e-9)
+        assertEquals(100.0, Weights.convertAmount(220.5, WeightUnit.LB, WeightUnit.KG), 1e-9)
+    }
+
+    @Test
+    fun `a converted amount still logs the same physical load`() {
+        val inPounds = Weights.convertAmount(100.0, WeightUnit.KG, WeightUnit.LB)
+        assertEquals(100.0, WeightUnit.LB.toKilograms(inPounds), 0.12)
+
+        val inKilograms = Weights.convertAmount(225.0, WeightUnit.LB, WeightUnit.KG)
+        assertEquals(225.0, WeightUnit.LB.fromKilograms(inKilograms), 0.26)
+    }
+
+    @Test
+    fun `converting within the same unit is a no-op and zero stays zero`() {
+        assertEquals(62.3, Weights.convertAmount(62.3, WeightUnit.KG, WeightUnit.KG), 1e-9)
+        assertEquals(0.0, Weights.convertAmount(0.0, WeightUnit.KG, WeightUnit.LB), 1e-9)
+        assertEquals(0.0, Weights.convertAmount(0.0, WeightUnit.LB, WeightUnit.KG), 1e-9)
+    }
+
+    @Test
     fun `parsing accepts a unit suffix and a comma decimal separator`() {
         assertEquals(45.0, Weights.parseToKilograms("45", WeightUnit.LB)!! / KG_PER_LB, 1e-6)
         assertEquals(60.0, Weights.parseToKilograms("60 kg", WeightUnit.KG)!!, 1e-9)

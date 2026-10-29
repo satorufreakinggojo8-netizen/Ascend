@@ -212,7 +212,18 @@ fun LoggerScreen(
             RestTimerBar(
                 remaining = restRemaining,
                 total = restTotal,
-                onExtend = { restRemaining += 30; restTotal += 30 },
+                onExtend = {
+                    restTotal += 30
+                    if (restRemaining > 0) {
+                        restRemaining += 30
+                    } else {
+                        // The countdown already finished, so there is no loop left to
+                        // extend: restart it with the extra time instead of showing a
+                        // frozen number.
+                        restRemaining = restTotal
+                        restTicker += 1
+                    }
+                },
                 onSkip = { restTotal = 0; restRemaining = 0; restTicker += 1 },
             )
         }
@@ -473,6 +484,16 @@ private fun ExerciseLogger(
     }
     var weightDisplay by remember(slot.exerciseId, isWarmup) {
         mutableStateOf(unit.snap(unit.fromKilograms(defaults.weightKg)))
+    }
+    var displayUnit by remember(slot.exerciseId, isWarmup) { mutableStateOf(unit) }
+
+    // Switching kg/lb mid-entry keeps the same physical load: the digits are
+    // converted rather than reinterpreted (100 kg must not become 100 lb).
+    LaunchedEffect(unit) {
+        if (unit != displayUnit) {
+            weightDisplay = Weights.convertAmount(weightDisplay, displayUnit, unit)
+            displayUnit = unit
+        }
     }
     var reps by remember(slot.exerciseId, isWarmup) { mutableIntStateOf(defaults.reps) }
     var rpe by remember(slot.exerciseId) { mutableStateOf<Double?>(null) }
@@ -767,7 +788,7 @@ private fun ExerciseLogger(
             slot = slot,
             unit = unit,
             onUse = { step ->
-                weightDisplay = unit.display(step.weightKg)
+                weightDisplay = unit.snap(unit.fromKilograms(step.weightKg))
                 isWarmup = true
                 reps = step.reps
                 editingSetId = null

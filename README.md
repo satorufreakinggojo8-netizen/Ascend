@@ -89,7 +89,7 @@ release install.
 ## Tests
 
 ```bash
-./gradlew test          # 359 tests: 269 domain, 42 data, 30 integrations, 18 app
+./gradlew test          # 317 tests: 272 domain, 21 data, 15 integrations, 9 app
 ```
 
 They cover the parts that are easy to get subtly wrong:
@@ -104,7 +104,8 @@ They cover the parts that are easy to get subtly wrong:
   comparison fallback, muscle shares
 - home model: today's planned workout, rest days, resume, post-workout session link
 - progression: rep-range completion, deload and plateau detection, no automatic jumps
-- units: kg/lb conversion and rounding, volume formatting, duration formatting
+- units: kg/lb conversion and rounding, converting a typed amount when the unit is
+  switched mid-entry, volume formatting, duration formatting
 - charts and summaries: windows, bucketing, personal records, consistency counts
 - levels and recovery wording, including the "not enough data" cases
 - sleep: permission denied, revoked, unavailable SDK, update required, no data
@@ -130,7 +131,7 @@ the smallest change Nocta needs if it does not publish yet.
 
 ## What is verified, and what needs a device
 
-Verified here: all 337 unit tests pass, `assembleDebug` produces an installable APK, and
+Verified here: all 317 unit tests pass, `assembleDebug` produces an installable APK, and
 the whole app module compiles against the pinned dependency set. The calendar is covered
 by planner tests (generation, moving, skipping, session linking, midnight boundaries)
 and the home model is tested against a fixed clock and timezone.

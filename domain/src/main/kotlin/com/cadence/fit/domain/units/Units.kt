@@ -88,6 +88,16 @@ object Weights {
         return if (negative) "-$builder" else builder.toString()
     }
 
+    /**
+     * Converts an amount typed in one unit into the same physical load expressed
+     * in another, snapped onto the target unit's display grid.
+     *
+     * Switching the unit mid-entry must not reinterpret the digits: 100 kg is
+     * 220.5 lb, not 100 lb.
+     */
+    fun convertAmount(amount: Double, from: WeightUnit, to: WeightUnit): Double =
+        if (from == to) amount else to.snap(to.fromKilograms(from.toKilograms(amount)))
+
     /** Parses free text from a weight field. Returns kilograms or null. */
     fun parseToKilograms(text: String, unit: WeightUnit): Double? {
         val raw = text.trim().replace(',', '.').removeSuffix(unit.abbreviation).trim()
