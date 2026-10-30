@@ -163,6 +163,9 @@ installed, `GH_TOKEN`/`GITHUB_TOKEN` are unset, there is no SSH key, `git creden
 fill` finds no stored credential, `https://api.github.com/user` returns 401, and no
 `Ascend` remote or local copy is reachable from this workspace. Until access is
 available the repository below cannot be found or verified, so no branch was pushed.
+The public account `abhinavsinghrawat` is visible, but none of its six public
+repositories is named `Ascend`, so `Ascend` is private or lives under another owner;
+either way its default branch cannot be read without authentication.
 
 Once authenticated, this keeps Cadence in its own directory inside `Ascend` and
 preserves both histories (`git subtree` adds merge commits; nothing is rewritten and
