@@ -1,0 +1,24 @@
+# Build outputs
+build/
+*/build/
+out/
+
+# Gradle
+.gradle/
+*.log
+
+# Local machine configuration (SDK path)
+local.properties
+
+# Project-local toolchain (JDK, Android SDK, Gradle) used by scripts/dev-env.sh
+.toolchain/
+
+# IDE
+.idea/
+*.iml
+*.hprof
+captures/
+
+# OS noise
+.DS_Store
+Thumbs.db
