@@ -60,10 +60,10 @@ fun HomeScreen(
     onOpenSession: (String) -> Unit,
     onOpenPlan: () -> Unit,
     onOpenSleep: () -> Unit,
-    onOpenSettings: () -> Unit,
     onOpenLibrary: () -> Unit,
     onBuildPlan: () -> Unit,
     onOpenSchedule: () -> Unit,
+    onOpenProfile: () -> Unit,
     onOpenCoaches: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -94,14 +94,14 @@ fun HomeScreen(
             title = "Cadence",
             subtitle = TimeRanges.relativeDay(now, now),
             actions = listOf(
+                CadenceIcon.User to onOpenProfile,
                 CadenceIcon.Coach to onOpenCoaches,
                 CadenceIcon.Sleep to onOpenSleep,
-                CadenceIcon.Settings to onOpenSettings,
             ),
             actionDescriptions = listOf(
+                "Profile and plan",
                 "Coaches and guidance",
                 "Sleep and recovery",
-                "Settings and privacy",
             ),
         )
 
@@ -110,7 +110,7 @@ fun HomeScreen(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             NextActionCard(
                 action = model.nextAction,
@@ -200,7 +200,7 @@ private fun NextActionCard(action: NextAction, onAct: () -> Unit) {
             }
         }
         Spacer(Modifier.size(10.dp))
-        Text(action.title, style = MaterialTheme.typography.headlineSmall)
+        Text(action.title, style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.size(4.dp))
         Text(
             action.subtitle,

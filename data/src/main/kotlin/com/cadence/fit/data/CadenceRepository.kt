@@ -7,12 +7,18 @@ import com.cadence.fit.domain.core.IdGenerator
 import com.cadence.fit.domain.core.SystemClock
 import com.cadence.fit.domain.core.UuidGenerator
 import com.cadence.fit.domain.model.AppSettings
+import com.cadence.fit.domain.model.BodyProfile
 import com.cadence.fit.domain.model.LoggedSet
 import com.cadence.fit.domain.model.Routine
 import com.cadence.fit.domain.model.ScheduledWorkout
 import com.cadence.fit.domain.model.TrainingLocation
 import com.cadence.fit.domain.model.TrainingProfile
 import com.cadence.fit.domain.model.WorkoutSession
+import com.cadence.fit.domain.plan.SplitApplier
+import com.cadence.fit.domain.plan.SplitApplication
+import com.cadence.fit.domain.plan.SplitTemplate
+import com.cadence.fit.domain.plan.SplitTemplates
+import com.cadence.fit.domain.plan.PlanBuilder
 import com.cadence.fit.domain.schedule.SchedulePlanner
 import com.cadence.fit.domain.time.TimeRanges
 import com.cadence.fit.domain.workout.WorkoutLogger
@@ -28,6 +34,7 @@ data class CadenceState(
     val loaded: Boolean = false,
     val profile: TrainingProfile = TrainingProfile(),
     val settings: AppSettings = AppSettings(),
+    val bodyProfile: BodyProfile = BodyProfile(),
     val routines: List<Routine> = emptyList(),
     val sessions: List<WorkoutSession> = emptyList(),
     val schedule: List<ScheduledWorkout> = emptyList(),
@@ -72,6 +79,7 @@ class CadenceRepository(
                 loaded = true,
                 profile = preferences.profile,
                 settings = preferences.settings,
+                bodyProfile = preferences.bodyProfile,
                 routines = routines.loadRoutines(),
                 sessions = workouts.loadSessions(),
                 schedule = calendar.loadSlots(),
@@ -88,6 +96,63 @@ class CadenceRepository(
     suspend fun saveSettings(settings: AppSettings) {
         preferences.settings = settings
         mutableState.update { it.copy(settings = settings) }
+    }
+
+    suspend fun saveBodyProfile(body: BodyProfile) {
+        val sanitized = body.sanitized()
+        preferences.bodyProfile = sanitized
+        mutableState.update { it.copy(bodyProfile = sanitized) }
+    }
+
+    /**
+     * Adds an edited split's routines and lays its days out on the calendar.
+     *
+     * Existing routines are never deleted. Planned days inside the applied weeks
+     * are replaced so the week matches the preview; completed and skipped days are
+     * preserved as history and as a record of the decision.
+     */
+    suspend fun applySplit(
+        template: SplitTemplate,
+        profile: TrainingProfile,
+        builder: PlanBuilder,
+        nowMs: Long,
+        weeks: Int = 2,
+    ): SplitApplication {
+        val current = mutableState.value
+        val application = SplitApplier.apply(
+            template = template,
+            profile = profile,
+            builder = builder,
+            ids = ids,
+            nowMs = nowMs,
+            weekStart = currentWeek(),
+            existingSchedule = current.schedule,
+            weeks = weeks,
+            notBefore = today(),
+        )
+
+        val startPosition = current.routines.size
+        application.routines.forEachIndexed { index, routine ->
+            routines.upsertRoutine(routine, startPosition + index)
+        }
+        mutableState.update { state -> state.copy(routines = state.routines + application.routines) }
+
+        saveSchedule(application.schedule)
+        // The weekly target follows the split that is now in use; otherwise the home
+        // card would compare six planned days against an old three-day target.
+        saveProfile(
+            profile
+                .withPlan(template.name, template.id)
+                .copy(daysPerWeek = template.daysPerWeek.coerceIn(2, 6)),
+        )
+        return application
+    }
+
+    suspend fun clearPlanLabel() {
+        val current = mutableState.value.profile
+        if (current.planName.isNotEmpty() || current.splitTemplateId != null) {
+            saveProfile(current.copy(planName = "", splitTemplateId = null))
+        }
     }
 
     suspend fun saveRoutine(routine: Routine) {
@@ -115,14 +180,27 @@ class CadenceRepository(
         if (renamed != current) saveSchedule(renamed)
     }
 
+    /**
+     * Replaces the generated starter routines and keeps every routine the user made.
+     *
+     * The old starter rows are deleted from SQLite as well as from memory, so a
+     * rebuild cannot leave ghost routines that reappear after a restart.
+     */
     suspend fun saveRoutines(routineList: List<Routine>) {
-        routineList.forEachIndexed { index, routine -> routines.upsertRoutine(routine, index) }
-        // A rebuilt plan replaces every routine id, so stale planned days are cleared
-        // rather than left pointing at routines that no longer exist.
+        val existing = mutableState.value.routines
+        val custom = existing.filterNot { it.isStarterPlan }
+        existing.filter { it.isStarterPlan }.forEach { stale ->
+            routines.deleteRoutine(stale.id)
+        }
+        routineList.forEachIndexed { index, routine ->
+            routines.upsertRoutine(routine, custom.size + index)
+        }
+        // A rebuilt plan replaces every generated routine id, so stale planned days
+        // are cleared rather than left pointing at routines that no longer exist.
         calendar.deletePlannedSlots()
         mutableState.update {
             it.copy(
-                routines = routineList,
+                routines = custom + routineList,
                 schedule = it.schedule.filter { slot -> slot.status == com.cadence.fit.domain.model.ScheduleStatus.COMPLETED },
             )
         }
@@ -159,15 +237,26 @@ class CadenceRepository(
         if (current.routines.isEmpty()) return false
         if (planner.hasWeek(current.schedule, weekStart)) return false
         val notBefore = if (weekStart == currentWeek()) today() else null
-        return saveSchedule(
+        val split = SplitTemplates.byId(current.profile.splitTemplateId)
+        val planned = if (split != null) {
+            SplitApplier.ensureWeek(
+                template = split,
+                routines = current.routines,
+                weekStart = weekStart,
+                existing = current.schedule,
+                ids = ids,
+                notBefore = notBefore,
+            )
+        } else {
             planner.planWeek(
                 routines = current.routines,
                 weekStart = weekStart,
                 existing = current.schedule,
                 daysPerWeek = current.profile.daysPerWeek,
                 notBefore = notBefore,
-            ),
-        )
+            )
+        }
+        return saveSchedule(planned)
     }
 
     suspend fun moveSlot(slotId: String, date: LocalDate): Boolean =
@@ -295,6 +384,7 @@ class CadenceRepository(
             appVersion = appVersion,
             profile = current.profile,
             settings = current.settings,
+            bodyProfile = current.bodyProfile,
             routines = current.routines,
             sessions = current.sessions,
             schedule = current.schedule,
@@ -312,6 +402,7 @@ class CadenceRepository(
         val document = BackupCodec.decode(text)
         preferences.profile = document.profile
         preferences.settings = document.settings
+        preferences.bodyProfile = document.bodyProfile
         preferences.activeSessionId = null
 
         routines.deleteAllRoutines()
@@ -326,6 +417,7 @@ class CadenceRepository(
                 loaded = true,
                 profile = document.profile,
                 settings = document.settings,
+                bodyProfile = document.bodyProfile,
                 routines = document.routines,
                 sessions = document.sessions.sortedByDescending { session -> session.startedAtMs },
                 schedule = document.schedule.sortedWith(compareBy({ slot -> slot.date }, { slot -> slot.id })),

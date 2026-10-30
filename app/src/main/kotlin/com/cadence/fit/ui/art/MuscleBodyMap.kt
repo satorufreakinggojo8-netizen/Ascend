@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -22,6 +23,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
@@ -34,106 +36,184 @@ import com.cadence.fit.ui.theme.CadenceTheme
 private const val FIGURE_W = 100f
 private const val FIGURE_H = 200f
 
-private sealed interface Shape {
-    data class Ellipse(val cx: Float, val cy: Float, val rx: Float, val ry: Float) : Shape
+/** A muscle drawn as a closed, smoothed outline. */
+private data class Region(val muscle: MuscleGroup, val shapes: List<List<Offset>>)
 
-    data class Poly(val points: List<Offset>) : Shape
-}
+private fun points(vararg coordinates: Float): List<Offset> =
+    coordinates.toList().chunked(2).map { (x, y) -> Offset(x, y) }
 
-private data class MuscleRegion(val muscle: MuscleGroup, val shapes: List<Shape>)
+/** Mirrors a left-side outline across the figure's centre line. */
+private fun mirrored(shape: List<Offset>): List<Offset> = shape.map { Offset(FIGURE_W - it.x, it.y) }
 
-private fun ellipse(cx: Float, cy: Float, rx: Float, ry: Float): Shape = Shape.Ellipse(cx, cy, rx, ry)
-
-private fun poly(vararg coordinates: Float): Shape = Shape.Poly(
-    coordinates.toList().chunked(2).map { (x, y) -> Offset(x, y) },
-)
+private fun bothSides(shape: List<Offset>): List<List<Offset>> = listOf(shape, mirrored(shape))
 
 private val FRONT_REGIONS = listOf(
-    MuscleRegion(
+    Region(
         MuscleGroup.SHOULDERS,
-        listOf(ellipse(31f, 54f, 11f, 9f), ellipse(69f, 54f, 11f, 9f)),
-    ),
-    MuscleRegion(
-        MuscleGroup.CHEST,
-        listOf(ellipse(42f, 64f, 10.5f, 9f), ellipse(58f, 64f, 10.5f, 9f)),
-    ),
-    MuscleRegion(
-        MuscleGroup.BICEPS,
-        listOf(ellipse(22f, 80f, 7f, 11f), ellipse(78f, 80f, 7f, 11f)),
-    ),
-    MuscleRegion(
-        MuscleGroup.FOREARMS,
-        listOf(ellipse(16f, 106f, 6f, 13f), ellipse(84f, 106f, 6f, 13f)),
-    ),
-    MuscleRegion(
-        MuscleGroup.ABS,
-        listOf(poly(45f, 84f, 55f, 84f, 55f, 116f, 45f, 116f)),
-    ),
-    MuscleRegion(
-        MuscleGroup.OBLIQUES,
-        listOf(
-            poly(37f, 86f, 45f, 86f, 45f, 114f, 39f, 110f),
-            poly(55f, 86f, 63f, 86f, 61f, 110f, 55f, 114f),
+        bothSides(
+            points(
+                30f, 38f, 37f, 39f, 39f, 47f, 35f, 53f, 29f, 50f, 26f, 43f,
+            ),
         ),
     ),
-    MuscleRegion(
+    Region(
+        MuscleGroup.CHEST,
+        bothSides(
+            points(
+                34f, 44f, 41f, 43f, 48f, 45f, 48f, 53f, 44f, 59f, 37f, 55f, 33f, 49f,
+            ),
+        ),
+    ),
+    Region(
+        MuscleGroup.BICEPS,
+        bothSides(
+            points(
+                26f, 57f, 30f, 58f, 29f, 69f, 25f, 75f, 22f, 69f, 22f, 62f,
+            ),
+        ),
+    ),
+    Region(
+        MuscleGroup.FOREARMS,
+        bothSides(
+            points(
+                20f, 78f, 24f, 80f, 21f, 99f, 18f, 108f, 15f, 99f, 15f, 86f,
+            ),
+        ),
+    ),
+    Region(
+        MuscleGroup.ABS,
+        listOf(
+            points(
+                45f, 59f, 55f, 59f, 56f, 78f, 54f, 97f, 50f, 103f, 46f, 97f, 44f, 78f,
+            ),
+        ),
+    ),
+    Region(
+        MuscleGroup.OBLIQUES,
+        bothSides(
+            points(
+                38f, 61f, 44f, 64f, 45f, 92f, 42f, 101f, 37f, 90f, 36f, 74f,
+            ),
+        ),
+    ),
+    Region(
         MuscleGroup.QUADS,
-        listOf(ellipse(42f, 148f, 8.5f, 22f), ellipse(58f, 148f, 8.5f, 22f)),
+        bothSides(
+            points(
+                39f, 118f, 50f, 121f, 49f, 144f, 45f, 156f, 39f, 154f, 34f, 139f,
+            ),
+        ),
     ),
 )
 
 private val BACK_REGIONS = listOf(
-    MuscleRegion(
-        MuscleGroup.TRAPS,
-        listOf(poly(50f, 40f, 62f, 52f, 50f, 66f, 38f, 52f)),
-    ),
-    MuscleRegion(
+    Region(
         MuscleGroup.SHOULDERS,
-        listOf(ellipse(30f, 57f, 11f, 10f), ellipse(70f, 57f, 11f, 10f)),
-    ),
-    MuscleRegion(
-        MuscleGroup.TRICEPS,
-        listOf(ellipse(21f, 82f, 7f, 11f), ellipse(79f, 82f, 7f, 11f)),
-    ),
-    MuscleRegion(
-        MuscleGroup.FOREARMS,
-        listOf(ellipse(15f, 108f, 6f, 13f), ellipse(85f, 108f, 6f, 13f)),
-    ),
-    MuscleRegion(
-        MuscleGroup.UPPER_BACK,
-        listOf(poly(42f, 60f, 58f, 60f, 56f, 84f, 44f, 84f)),
-    ),
-    MuscleRegion(
-        MuscleGroup.LATS,
-        listOf(
-            poly(34f, 66f, 42f, 64f, 44f, 92f, 36f, 88f),
-            poly(58f, 64f, 66f, 66f, 64f, 88f, 56f, 92f),
+        bothSides(
+            points(
+                30f, 40f, 37f, 40f, 39f, 48f, 35f, 54f, 29f, 50f, 26f, 44f,
+            ),
         ),
     ),
-    MuscleRegion(
+    Region(
+        MuscleGroup.UPPER_BACK,
+        listOf(
+            points(
+                43f, 45f, 57f, 45f, 58f, 61f, 54f, 72f, 46f, 72f, 42f, 61f,
+            ),
+        ),
+    ),
+    Region(
+        MuscleGroup.LATS,
+        bothSides(
+            points(
+                35f, 51f, 43f, 57f, 44f, 76f, 40f, 88f, 34f, 79f, 33f, 64f,
+            ),
+        ),
+    ),
+    // Drawn above the lats and upper back so the trapezius reads as the surface
+    // muscle, not a patch hidden underneath them.
+    Region(
+        MuscleGroup.TRAPS,
+        listOf(
+            points(
+                46f, 27f, 54f, 27f, 59f, 41f, 55f, 52f, 50f, 62f, 45f, 52f, 41f, 41f,
+            ),
+        ),
+    ),
+    Region(
         MuscleGroup.LOWER_BACK,
-        listOf(poly(45f, 88f, 55f, 88f, 54f, 112f, 46f, 112f)),
+        listOf(
+            points(
+                46f, 78f, 54f, 78f, 53f, 100f, 47f, 100f,
+            ),
+        ),
     ),
-    MuscleRegion(
+    Region(
+        MuscleGroup.TRICEPS,
+        bothSides(
+            points(
+                25f, 57f, 29f, 57f, 28f, 69f, 25f, 76f, 21f, 69f, 21f, 61f,
+            ),
+        ),
+    ),
+    Region(
+        MuscleGroup.FOREARMS,
+        bothSides(
+            points(
+                20f, 78f, 24f, 80f, 21f, 99f, 18f, 108f, 15f, 99f, 15f, 86f,
+            ),
+        ),
+    ),
+    Region(
         MuscleGroup.GLUTES,
-        listOf(ellipse(42f, 128f, 9.5f, 12f), ellipse(58f, 128f, 9.5f, 12f)),
+        bothSides(
+            points(
+                37f, 112f, 46f, 109f, 50f, 119f, 47f, 131f, 39f, 132f, 34f, 123f,
+            ),
+        ),
     ),
-    MuscleRegion(
+    Region(
         MuscleGroup.HAMSTRINGS,
-        listOf(ellipse(42f, 158f, 8f, 19f), ellipse(58f, 158f, 8f, 19f)),
+        bothSides(
+            points(
+                40f, 130f, 48f, 131f, 47f, 153f, 43f, 162f, 38f, 152f, 37f, 140f,
+            ),
+        ),
     ),
-    MuscleRegion(
+    Region(
         MuscleGroup.CALVES,
-        listOf(ellipse(41f, 186f, 7f, 11f), ellipse(59f, 186f, 7f, 11f)),
+        bothSides(
+            points(
+                40f, 160f, 46f, 160f, 45f, 178f, 42f, 188f, 38f, 178f, 37f, 168f,
+            ),
+        ),
     ),
 )
 
+private fun smoothPath(shape: List<Offset>): Path {
+    val path = Path()
+    if (shape.size < 3) return path
+    val start = midpoint(shape.last(), shape.first())
+    path.moveTo(start.x, start.y)
+    shape.forEachIndexed { index, point ->
+        val next = shape[(index + 1) % shape.size]
+        val middle = midpoint(point, next)
+        path.quadraticTo(point.x, point.y, middle.x, middle.y)
+    }
+    path.close()
+    return path
+}
+
+private fun midpoint(a: Offset, b: Offset) = Offset((a.x + b.x) / 2f, (a.y + b.y) / 2f)
+
 /**
- * Front and back figures shaded by training volume.
+ * Front and back figures shaded by logged training volume.
  *
- * The map is a *training summary*: it shows which muscle groups your logged
- * volume went to. It is not a body-composition measurement, and it makes no
- * claim about how anyone looks or about injury.
+ * This is a training summary: it shows where working sets went. It is not a
+ * body-composition measurement, a recovery score or a diagnosis. Colour is backed
+ * by an explicit scale, the highest band is also hatched, and the same values are
+ * printed as text below the figure.
  */
 @Composable
 fun MuscleBodyMap(
@@ -142,39 +222,43 @@ fun MuscleBodyMap(
     maxVolume: Double = volumeByMuscle.values.maxOrNull() ?: 0.0,
     selected: MuscleGroup? = null,
     onSelect: ((MuscleGroup?) -> Unit)? = null,
-    contentDescription: String = "Front and back muscle map shaded by training volume",
+    contentDescription: String = describeMap(volumeByMuscle, maxVolume),
 ) {
     val tones = CadenceTheme.tones
     val outline = MaterialTheme.colorScheme.outlineVariant
-    val silhouette = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+    val silhouette = MaterialTheme.colorScheme.outline.copy(alpha = 0.30f)
     val highlightRing = MaterialTheme.colorScheme.tertiary
 
     fun colorFor(muscle: MuscleGroup): Color {
         val volume = volumeByMuscle[muscle] ?: 0.0
         if (volume <= 0.0 || maxVolume <= 0.0) return tones.heatEmpty
-        val fraction = (volume / maxVolume).coerceIn(0.0, 1.0)
-        return when {
-            fraction < 0.25 -> tones.heatLow
-            fraction < 0.55 -> tones.heatMid
-            fraction < 0.85 -> tones.heatHigh
+        return when (muscleBand(volume, maxVolume)) {
+            1 -> tones.heatLow
+            2 -> tones.heatMid
+            3 -> tones.heatHigh
             else -> tones.heatPeak
         }
     }
 
-    val describe = Modifier.semantics { this.contentDescription = contentDescription }
+    fun isPeak(muscle: MuscleGroup): Boolean {
+        val volume = volumeByMuscle[muscle] ?: 0.0
+        return volume > 0.0 && maxVolume > 0.0 && muscleBand(volume, maxVolume) == 4
+    }
 
     Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics { this.contentDescription = contentDescription },
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         BodySideFigure(
             label = "Front",
             regions = FRONT_REGIONS,
             modifier = Modifier
                 .weight(1f)
-                .aspectRatio(FIGURE_W / FIGURE_H)
-                .then(describe),
+                .aspectRatio(FIGURE_W / FIGURE_H),
             colorFor = ::colorFor,
+            isPeak = ::isPeak,
             selected = selected,
             silhouette = silhouette,
             outline = outline,
@@ -188,6 +272,7 @@ fun MuscleBodyMap(
                 .weight(1f)
                 .aspectRatio(FIGURE_W / FIGURE_H),
             colorFor = ::colorFor,
+            isPeak = ::isPeak,
             selected = selected,
             silhouette = silhouette,
             outline = outline,
@@ -200,9 +285,10 @@ fun MuscleBodyMap(
 @Composable
 private fun BodySideFigure(
     label: String,
-    regions: List<MuscleRegion>,
+    regions: List<Region>,
     modifier: Modifier,
     colorFor: (MuscleGroup) -> Color,
+    isPeak: (MuscleGroup) -> Boolean,
     selected: MuscleGroup?,
     silhouette: Color,
     outline: Color,
@@ -225,7 +311,10 @@ private fun BodySideFigure(
                         Modifier.pointerInput(regions.size) {
                             detectTapGestures { tap ->
                                 val box = fitBox(size.width.toFloat(), size.height.toFloat())
-                                val local = Offset((tap.x - box.left) / box.scale, (tap.y - box.top) / box.scale)
+                                val local = Offset(
+                                    (tap.x - box.left) / box.scale,
+                                    (tap.y - box.top) / box.scale,
+                                )
                                 val hit = regions.firstOrNull { region ->
                                     region.shapes.any { shape -> contains(shape, local) }
                                 }
@@ -244,33 +333,29 @@ private fun BodySideFigure(
                     scale(box.scale, box.scale, pivot = Offset.Zero)
                 },
             ) {
-                drawSilhouette(silhouette)
+                drawAnatomyBase(silhouette, outline)
                 regions.forEach { region ->
                     val fill = colorFor(region.muscle)
-                    val isSelected = region.muscle == selected
+                    val hatched = isPeak(region.muscle)
                     region.shapes.forEach { shape ->
-                        when (shape) {
-                            is Shape.Ellipse -> drawOval(
-                                color = fill,
-                                topLeft = Offset(shape.cx - shape.rx, shape.cy - shape.ry),
-                                size = Size(shape.rx * 2, shape.ry * 2),
-                            )
-
-                            is Shape.Poly -> drawPath(pathOf(shape), fill)
-                        }
-                    }
-                    if (isSelected) {
-                        region.shapes.forEach { shape ->
-                            when (shape) {
-                                is Shape.Ellipse -> drawOval(
-                                    color = highlightRing,
-                                    topLeft = Offset(shape.cx - shape.rx - 1f, shape.cy - shape.ry - 1f),
-                                    size = Size(shape.rx * 2 + 2f, shape.ry * 2 + 2f),
-                                    style = Stroke(width = 2.4f),
-                                )
-
-                                is Shape.Poly -> drawPath(pathOf(shape), highlightRing, style = Stroke(width = 2.4f))
+                        val path = smoothPath(shape)
+                        drawPath(path, fill)
+                        if (hatched) {
+                            clipPath(path) {
+                                var offset = -FIGURE_H
+                                while (offset < FIGURE_W + FIGURE_H) {
+                                    drawLine(
+                                        color = outline.copy(alpha = 0.55f),
+                                        start = Offset(offset, 0f),
+                                        end = Offset(offset + FIGURE_H, FIGURE_H),
+                                        strokeWidth = 0.8f,
+                                    )
+                                    offset += 5.5f
+                                }
                             }
+                        }
+                        if (region.muscle == selected) {
+                            drawPath(path, highlightRing, style = Stroke(width = 2.2f))
                         }
                     }
                 }
@@ -290,92 +375,167 @@ private fun fitBox(width: Float, height: Float): FitBox {
     )
 }
 
-private fun contains(shape: Shape, point: Offset): Boolean = when (shape) {
-    is Shape.Ellipse -> {
-        val dx = (point.x - shape.cx) / shape.rx
-        val dy = (point.y - shape.cy) / shape.ry
-        dx * dx + dy * dy <= 1f
-    }
-
-    // Ray casting: a point is inside when a ray crossing count is odd. Compose's
-    // Path has no reliable point test across API levels, so this is explicit.
-    is Shape.Poly -> {
-        var inside = false
-        val points = shape.points
-        var j = points.lastIndex
-        for (i in points.indices) {
-            val a = points[i]
-            val b = points[j]
-            if ((a.y > point.y) != (b.y > point.y)) {
-                val x = (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x
-                if (point.x < x) inside = !inside
-            }
-            j = i
+private fun contains(shape: List<Offset>, point: Offset): Boolean {
+    var inside = false
+    var j = shape.lastIndex
+    for (i in shape.indices) {
+        val a = shape[i]
+        val b = shape[j]
+        if ((a.y > point.y) != (b.y > point.y)) {
+            val x = (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x
+            if (point.x < x) inside = !inside
         }
-        inside
+        j = i
     }
+    return inside
 }
 
-private fun pathOf(shape: Shape.Poly): Path = Path().apply {
-    shape.points.forEachIndexed { index, point ->
-        if (index == 0) moveTo(point.x, point.y) else lineTo(point.x, point.y)
-    }
-    close()
-}
-
-private fun DrawScope.drawSilhouette(color: Color) {
-    val limb = 5.5f
-    drawCircle(color, radius = 13f, center = Offset(50f, 24f))
-    // torso
-    drawPath(
-        Path().apply {
-            moveTo(34f, 52f)
-            lineTo(66f, 52f)
-            lineTo(60f, 126f)
-            lineTo(40f, 126f)
-            close()
-        },
-        color,
+/**
+ * A neutral body outline beneath the muscle shapes. Limbs are rounded strokes so
+ * the figure reads as a body rather than a collection of blobs.
+ */
+private fun DrawScope.drawAnatomyBase(fill: Color, outline: Color) {
+    val torso = smoothPath(
+        points(
+            45f, 28f, 55f, 28f, 64f, 33f, 69f, 42f, 65f, 59f, 60f, 82f,
+            63f, 105f, 57f, 121f, 50f, 127f, 43f, 121f, 37f, 105f, 40f, 82f,
+            35f, 59f, 31f, 42f, 36f, 33f,
+        ),
     )
-    // arms
-    drawLine(color, Offset(33f, 55f), Offset(21f, 84f), limb, StrokeCap.Round)
-    drawLine(color, Offset(21f, 84f), Offset(15f, 112f), limb, StrokeCap.Round)
-    drawLine(color, Offset(67f, 55f), Offset(79f, 84f), limb, StrokeCap.Round)
-    drawLine(color, Offset(79f, 84f), Offset(85f, 112f), limb, StrokeCap.Round)
-    // legs
-    drawLine(color, Offset(44f, 126f), Offset(42f, 160f), limb + 1f, StrokeCap.Round)
-    drawLine(color, Offset(42f, 160f), Offset(41f, 196f), limb + 1f, StrokeCap.Round)
-    drawLine(color, Offset(56f, 126f), Offset(58f, 160f), limb + 1f, StrokeCap.Round)
-    drawLine(color, Offset(58f, 160f), Offset(59f, 196f), limb + 1f, StrokeCap.Round)
+    drawPath(torso, fill)
+    drawPath(torso, outline, style = Stroke(width = 0.8f))
+
+    // Upper arms, forearms and hands.
+    drawCapsule(Offset(33f, 38f), Offset(25f, 70f), 8.5f, fill, outline)
+    drawCapsule(Offset(25f, 70f), Offset(18f, 106f), 6.6f, fill, outline)
+    drawCapsule(Offset(67f, 38f), Offset(75f, 70f), 8.5f, fill, outline)
+    drawCapsule(Offset(75f, 70f), Offset(82f, 106f), 6.6f, fill, outline)
+    drawCircle(fill, radius = 3.6f, center = Offset(17f, 111f))
+    drawCircle(fill, radius = 3.6f, center = Offset(83f, 111f))
+
+    // Thighs, calves and feet.
+    drawCapsule(Offset(44f, 120f), Offset(42f, 152f), 8.2f, fill, outline)
+    drawCapsule(Offset(42f, 152f), Offset(39f, 184f), 6.2f, fill, outline)
+    drawCapsule(Offset(56f, 120f), Offset(58f, 152f), 8.2f, fill, outline)
+    drawCapsule(Offset(58f, 152f), Offset(61f, 184f), 6.2f, fill, outline)
+    drawCapsule(Offset(39f, 184f), Offset(35f, 195f), 4.2f, fill, outline)
+    drawCapsule(Offset(61f, 184f), Offset(65f, 195f), 4.2f, fill, outline)
+
+    // Neck and head.
+    val neck = smoothPath(points(45f, 24f, 55f, 24f, 56f, 31f, 44f, 31f))
+    drawPath(neck, fill)
+    drawOval(
+        color = fill,
+        topLeft = Offset(41f, 6f),
+        size = Size(18f, 21f),
+    )
+    drawOval(
+        color = outline,
+        topLeft = Offset(41f, 6f),
+        size = Size(18f, 21f),
+        style = Stroke(width = 0.8f),
+    )
 }
 
-/** The four-step colour legend shown under the map. */
+private fun DrawScope.drawCapsule(
+    start: Offset,
+    end: Offset,
+    width: Float,
+    fill: Color,
+    outline: Color,
+) {
+    drawLine(fill, start, end, strokeWidth = width, cap = StrokeCap.Round)
+    drawLine(outline, start, end, strokeWidth = width + 0.8f, cap = StrokeCap.Round, alpha = 0.5f)
+    drawLine(fill, start, end, strokeWidth = width - 0.8f, cap = StrokeCap.Round)
+}
+
+/**
+ * Four intensity bands plus an empty band. Exposed for tests so the boundary
+ * values that drive the colours and the legend cannot drift apart.
+ */
+internal fun muscleBand(volume: Double, maxVolume: Double): Int {
+    if (volume <= 0.0 || maxVolume <= 0.0) return 0
+    val fraction = (volume / maxVolume).coerceIn(0.0, 1.0)
+    return when {
+        fraction < 0.25 -> 1
+        fraction < 0.50 -> 2
+        fraction < 0.75 -> 3
+        else -> 4
+    }
+}
+
+private fun bandLabel(band: Int): String = when (band) {
+    0 -> "none"
+    1 -> "low"
+    2 -> "moderate"
+    3 -> "high"
+    else -> "most"
+}
+
+/** Screen-reader summary of the same information the colours encode. */
+private fun describeMap(volumeByMuscle: Map<MuscleGroup, Double>, maxVolume: Double): String {
+    val trained = volumeByMuscle.entries
+        .filter { it.value > 0.0 }
+        .sortedByDescending { it.value }
+        .map { (muscle, volume) -> "${muscle.displayName}: ${bandLabel(muscleBand(volume, maxVolume))}" }
+    val body = if (trained.isEmpty()) {
+        "No working sets in this window."
+    } else {
+        "Training volume by muscle: ${trained.joinToString(", ")}."
+    }
+    return "Front and back muscle map. $body This shows logged training volume, not body composition."
+}
+
+/** The five-step legend shown under the map, with a text scale and a hatch key. */
 @Composable
 fun MuscleMapLegend(modifier: Modifier = Modifier) {
     val tones = CadenceTheme.tones
     Column(modifier) {
         Text(
-            "What the colours mean",
+            "Share of logged volume",
             style = MaterialTheme.typography.titleSmall,
         )
         Spacer(Modifier.size(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             LegendSwatch("None", tones.heatEmpty)
             LegendSwatch("Low", tones.heatLow)
             LegendSwatch("Moderate", tones.heatMid)
             LegendSwatch("High", tones.heatHigh)
-            LegendSwatch("Most", tones.heatPeak)
+            LegendSwatch("Most", tones.heatPeak, hatched = true)
         }
+        Spacer(Modifier.size(8.dp))
+        Text(
+            "Each muscle is shaded against the most-trained group in this window. " +
+                "The highest band is also striped, so the scale does not rely on colour alone. " +
+                "Tap a muscle for its numbers.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
 @Composable
-private fun LegendSwatch(label: String, color: Color) {
+private fun LegendSwatch(label: String, color: Color, hatched: Boolean = false) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Canvas(Modifier.size(12.dp)) {
+        Canvas(Modifier.size(14.dp)) {
             drawRoundRect(color, cornerRadius = CornerRadius(4f, 4f))
+            if (hatched) {
+                var offset = -size.height
+                while (offset < size.width + size.height) {
+                    drawLine(
+                        color = Color.Black.copy(alpha = 0.24f),
+                        start = Offset(offset, size.height),
+                        end = Offset(offset + size.height, 0f),
+                        strokeWidth = 1f,
+                    )
+                    offset += 4f
+                }
+            }
         }
-        Spacer(Modifier.size(5.dp))
+        Spacer(Modifier.size(6.dp))
         Text(
             label,
             style = MaterialTheme.typography.labelSmall,

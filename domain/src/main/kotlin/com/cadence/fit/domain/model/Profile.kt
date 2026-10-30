@@ -11,9 +11,16 @@ data class TrainingProfile(
     val goal: TrainingGoal = TrainingGoal.GENERAL_FITNESS,
     val daysPerWeek: Int = 3,
     val sessionMinutes: Int = 45,
+    /** Display name of the split or starter plan currently in use. */
+    val planName: String = "",
+    /** Template id when the current plan came from a split, null otherwise. */
+    val splitTemplateId: String? = null,
 ) {
     val availableEquipment: Set<Equipment>
         get() = equipment + Equipment.BODYWEIGHT + Equipment.MAT
+
+    fun withPlan(planName: String, splitTemplateId: String? = null): TrainingProfile =
+        copy(planName = planName.trim(), splitTemplateId = splitTemplateId)
 
     companion object {
         val DAY_OPTIONS = listOf(2, 3, 4, 5, 6)

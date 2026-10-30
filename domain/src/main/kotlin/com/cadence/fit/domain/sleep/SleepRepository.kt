@@ -83,8 +83,8 @@ class SleepRepository(
     /** Records that the OS permission dialog came back granted / denied. */
     suspend fun recordPermission(granted: Boolean): SleepConnectionStatus {
         if (!granted) {
-            // Revoking permission stops reads immediately; the stored sessions stay
-            // so a later re-grant resumes where the user left off.
+            // A denied prompt turns the opt-in off, so the app never keeps asking.
+            // Sleep sessions are not stored at all; a later grant reads them again.
             stateStore.setEnabled(false)
         }
         return status()

@@ -103,11 +103,17 @@ fun SleepScreen(viewModel: CadenceViewModel, onBack: () -> Unit) {
             StatusCard(
                 status = status,
                 sessionCount = sessions.size,
-                onEnable = { viewModel.enableSleep() },
+                onEnable = {
+                    // Turning reading on is the moment the permission is needed, and the
+                    // explanation is already on this card. One tap, one system dialog.
+                    viewModel.enableSleep()
+                    launcher.launch(HealthConnectPermissions.requested)
+                },
                 onRequestPermission = { launcher.launch(HealthConnectPermissions.requested) },
                 onRefresh = { viewModel.refreshSleep() },
                 onDisconnect = { viewModel.disconnectSleep() },
                 onOpenHealthConnect = { openHealthConnectSettings(context) },
+                nowMs = now,
             )
 
             if (status.availability != SleepAvailability.AVAILABLE) {
@@ -271,6 +277,7 @@ private fun StatusCard(
     onRefresh: () -> Unit,
     onDisconnect: () -> Unit,
     onOpenHealthConnect: () -> Unit,
+    nowMs: Long,
 ) {
     CadenceCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -361,7 +368,7 @@ private fun StatusCard(
                 status.lastSyncMs?.let { lastSync ->
                     Spacer(Modifier.size(6.dp))
                     Text(
-                        "Last read ${TimeRanges.relativeDay(lastSync, System.currentTimeMillis())}.",
+                        "Last read ${TimeRanges.relativeDay(lastSync, nowMs)}.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -441,7 +448,11 @@ private val UnavailablePermissionContract = object : ActivityResultContract<Set<
 }
 
 private fun openHealthConnectSettings(context: Context) {
-    val intent = Intent(HealthConnectPermissions.RATIONALE_ACTION)
+    val settingsIntent = Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    runCatching { context.startActivity(intent) }
+    if (runCatching { context.startActivity(settingsIntent) }.isSuccess) return
+
+    val rationale = Intent(HealthConnectPermissions.RATIONALE_ACTION)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(rationale) }
 }

@@ -51,6 +51,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenSleep: () -> Unit,
     onRestartOnboarding: () -> Unit,
+    onOpenProfile: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sleepStatus by viewModel.sleepStatus.collectAsStateWithLifecycle()
@@ -84,6 +85,24 @@ fun SettingsScreen(
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            CadenceCard(onClick = onOpenProfile) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Your profile", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Optional age, height and weight · current plan",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    CadenceIcon(
+                        CadenceIcon.ChevronRight,
+                        size = 20.dp,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
             CadenceCard {
                 SectionHeader(title = "Units", subtitle = "Weights are stored in kilograms either way")
                 Spacer(Modifier.size(12.dp))
@@ -213,7 +232,8 @@ fun SettingsScreen(
                 Spacer(Modifier.size(10.dp))
                 BulletLine("No account is needed and none exists.")
                 BulletLine("Nothing is uploaded, shared or sold.")
-                BulletLine("Exports contain your routines, history and preferences only.")
+                BulletLine("Exports contain your routines, history, plan and preferences.")
+                BulletLine("Optional age, height and weight are included only because they are your data.")
                 BulletLine("Exports never contain sleep data or identifiers from other apps.")
                 Spacer(Modifier.size(14.dp))
                 SecondaryButton(
@@ -267,9 +287,9 @@ fun SettingsScreen(
 
     if (pendingDeleteAll) {
         ConfirmDialog(
-            title = "Delete everything?",
-            message = "Your routines, workout history, records and preferences are removed from " +
-                "this device. Sleep reading is turned off. This cannot be undone.",
+            title = "Delete everything?",                message = "Your routines, workout history, records, optional profile details and " +
+                "preferences are removed from this device. Sleep reading is turned off. This " +
+                "cannot be undone.",
             confirmLabel = "Delete all data",
             onConfirm = {
                 pendingDeleteAll = false

@@ -51,6 +51,8 @@ enum class CadenceIcon {
     Book,
     Warning,
     Camera,
+    Mic,
+    User,
 }
 
 @Composable
@@ -98,6 +100,8 @@ fun CadenceIcon(
             CadenceIcon.Book -> drawBook(unit, tint, width)
             CadenceIcon.Warning -> drawWarning(unit, tint, width)
             CadenceIcon.Camera -> drawCamera(unit, tint, width)
+            CadenceIcon.Mic -> drawMic(unit, tint, width)
+            CadenceIcon.User -> drawUser(unit, tint, width)
         }
     }
 }
@@ -197,6 +201,41 @@ private fun DrawScope.drawCamera(unit: Float, color: Color, width: Float) {
     line(9f * unit, 7.5f * unit, 10f * unit, 5.5f * unit, color, width)
     line(10f * unit, 5.5f * unit, 14f * unit, 5.5f * unit, color, width)
     line(14f * unit, 5.5f * unit, 15f * unit, 7.5f * unit, color, width)
+}
+
+private fun DrawScope.drawMic(unit: Float, color: Color, width: Float) {
+    val stroke = strokeStyle(unit, width)
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(9f * unit, 3.2f * unit),
+        size = Size(6f * unit, 10f * unit),
+        cornerRadius = CornerRadius(3f * unit, 3f * unit),
+        style = stroke,
+    )
+    val cradle = Path().apply {
+        moveTo(5.5f * unit, 10.5f * unit)
+        cubicTo(5.5f * unit, 16f * unit, 8.4f * unit, 18f * unit, 12f * unit, 18f * unit)
+        cubicTo(15.6f * unit, 18f * unit, 18.5f * unit, 16f * unit, 18.5f * unit, 10.5f * unit)
+    }
+    drawPath(cradle, color, style = stroke)
+    line(12f * unit, 18f * unit, 12f * unit, 21f * unit, color, width)
+    line(8.5f * unit, 21f * unit, 15.5f * unit, 21f * unit, color, width)
+}
+
+private fun DrawScope.drawUser(unit: Float, color: Color, width: Float) {
+    val stroke = strokeStyle(unit, width)
+    drawCircle(
+        color,
+        radius = 3.6f * unit,
+        center = Offset(12f * unit, 7.8f * unit),
+        style = stroke,
+    )
+    val shoulders = Path().apply {
+        moveTo(5f * unit, 20.4f * unit)
+        cubicTo(5f * unit, 16f * unit, 8.2f * unit, 13.6f * unit, 12f * unit, 13.6f * unit)
+        cubicTo(15.8f * unit, 13.6f * unit, 19f * unit, 16f * unit, 19f * unit, 20.4f * unit)
+    }
+    drawPath(shoulders, color, style = stroke)
 }
 
 private fun DrawScope.drawCoach(unit: Float, color: Color, width: Float) {

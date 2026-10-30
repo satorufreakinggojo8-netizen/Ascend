@@ -27,14 +27,8 @@ class PlanBuilder(
     private val ids: IdGenerator,
 ) {
 
-    private data class Slot(
-        val label: String,
-        val patterns: Set<MovementPattern>,
-        val muscles: Set<MuscleGroup> = emptySet(),
-        val main: Boolean = false,
-    )
-
-    private data class DayTemplate(val name: String, val focus: String, val slots: List<Slot>)
+    private typealias Slot = MovementSlot
+    private typealias DayTemplate = SessionTemplate
 
     fun buildStarterPlan(profile: TrainingProfile, nowMs: Long): PlanSummary {
         val templates = templatesFor(profile.daysPerWeek)
@@ -60,6 +54,34 @@ class PlanBuilder(
             explanation = explanationFor(profile),
             warnings = warningsFor(profile, routines, exerciseCount),
         )
+    }
+
+    /**
+     * Builds one routine from a public [SessionTemplate].
+     *
+     * Split templates use this so a split's sessions get exactly the same
+     * equipment filtering, experience rules and goal-based rep ranges as the
+     * starter plan. [name] and [focus] override the template labels when a split
+     * names a day after its place in the week.
+     */
+    fun buildRoutine(
+        template: SessionTemplate,
+        profile: TrainingProfile,
+        nowMs: Long,
+        variantOffset: Int = 0,
+        name: String = template.name,
+        focus: String = template.focus,
+    ): Routine {
+        val routine = buildFromTemplate(
+            template = template,
+            profile = profile,
+            equipment = profile.availableEquipment,
+            exerciseCount = exercisesPerSession(profile),
+            variantOffset = variantOffset,
+            usedAcrossPlan = mutableSetOf(),
+            nowMs = nowMs,
+        )
+        return routine.copy(name = name, focus = focus)
     }
 
     /** An empty routine the user can fill in from the exercise library. */

@@ -4,6 +4,7 @@ import com.cadence.fit.domain.json.Json
 import com.cadence.fit.domain.json.JsonParseException
 import com.cadence.fit.domain.json.JsonValue
 import com.cadence.fit.domain.model.AppSettings
+import com.cadence.fit.domain.model.BodyProfile
 import com.cadence.fit.domain.model.Difficulty
 import com.cadence.fit.domain.model.Equipment
 import com.cadence.fit.domain.model.ExperienceLevel
@@ -15,6 +16,7 @@ import com.cadence.fit.domain.model.ScheduledWorkout
 import com.cadence.fit.domain.model.TrainingGoal
 import com.cadence.fit.domain.model.TrainingLocation
 import com.cadence.fit.domain.model.TrainingProfile
+import com.cadence.fit.domain.model.WeightEntry
 import com.cadence.fit.domain.model.WorkoutSession
 import com.cadence.fit.domain.units.WeightUnit
 import java.time.LocalDate
@@ -33,6 +35,8 @@ data class BackupDocument(
     val appVersion: String,
     val profile: TrainingProfile,
     val settings: AppSettings,
+    /** Optional age, height and locally recorded weight history. */
+    val bodyProfile: BodyProfile = BodyProfile(),
     val routines: List<Routine>,
     val sessions: List<WorkoutSession>,
     val schedule: List<ScheduledWorkout> = emptyList(),
@@ -40,14 +44,19 @@ data class BackupDocument(
 
 object BackupCodec {
 
-    /** v2 added the training calendar; v1 backups still import with an empty one. */
-    const val CURRENT_FORMAT_VERSION = 2
+    /**
+     * v2 added the training calendar; v3 added optional body details and the
+     * current plan name. Older backups still import with sensible defaults.
+     */
+    const val CURRENT_FORMAT_VERSION = 3
     const val FORMAT_TAG = "cadence-backup"
     const val FILE_PREFIX = "cadence-backup"
 
     const val NOTE: String =
-        "This file contains your Cadence routines, workout history and preferences. " +
-            "It contains no sleep data, no account details and no identifiers from other apps."
+        "This file contains your Cadence routines, workout history, plan and preferences. " +
+            "Any optional age, height or weight entries you chose to add are included because " +
+            "this is your own export. It contains no sleep data, no account details and no " +
+            "identifiers from other apps."
 
     fun encode(document: BackupDocument, pretty: Boolean = true): String =
         Json.write(toJson(document), pretty)
@@ -77,6 +86,7 @@ object BackupCodec {
             appVersion = rootObject.string("appVersion").orEmpty(),
             profile = readProfile(rootObject.obj("profile")),
             settings = readSettings(rootObject.obj("settings")),
+            bodyProfile = readBody(rootObject.obj("body")),
             routines = rootObject.array("routines")?.objects.orEmpty().map { readRoutine(it) },
             sessions = rootObject.array("sessions")?.objects.orEmpty().map { readSession(it) },
             schedule = rootObject.array("schedule")?.objects.orEmpty().mapNotNull { readSchedule(it) },
@@ -99,6 +109,7 @@ object BackupCodec {
         "note" to JsonValue.of(NOTE),
         "profile" to profileJson(document.profile),
         "settings" to settingsJson(document.settings),
+        "body" to bodyJson(document.bodyProfile),
         "routines" to JsonValue.ofArray(document.routines.map { routineJson(it) }),
         "sessions" to JsonValue.ofArray(document.sessions.map { sessionJson(it) }),
         "schedule" to JsonValue.ofArray(document.schedule.map { scheduleJson(it) }),
@@ -112,6 +123,21 @@ object BackupCodec {
         "goal" to JsonValue.of(profile.goal.name),
         "daysPerWeek" to JsonValue.of(profile.daysPerWeek),
         "sessionMinutes" to JsonValue.of(profile.sessionMinutes),
+        "planName" to JsonValue.of(profile.planName),
+        "splitTemplateId" to profile.splitTemplateId?.let { JsonValue.of(it) },
+    )
+
+    private fun bodyJson(body: BodyProfile): JsonValue.Obj = JsonValue.ofObj(
+        "ageYears" to body.ageYears?.let { JsonValue.of(it) },
+        "heightCm" to body.heightCm?.let { JsonValue.of(it) },
+        "weights" to JsonValue.ofArray(
+            body.weightEntries.sortedBy { it.atMs }.map { entry ->
+                JsonValue.ofObj(
+                    "atMs" to JsonValue.of(entry.atMs),
+                    "weightKg" to JsonValue.of(entry.weightKg),
+                )
+            },
+        ),
     )
 
     private fun settingsJson(settings: AppSettings): JsonValue.Obj = JsonValue.ofObj(
@@ -208,7 +234,25 @@ object BackupCodec {
             goal = enumOrNull<TrainingGoal>(json.string("goal")) ?: TrainingGoal.GENERAL_FITNESS,
             daysPerWeek = json.int("daysPerWeek") ?: 3,
             sessionMinutes = json.int("sessionMinutes") ?: 45,
+            planName = json.string("planName").orEmpty(),
+            splitTemplateId = json.string("splitTemplateId")?.takeIf { it.isNotBlank() },
         )
+    }
+
+    /** Missing section in an older backup means "no optional details" — not an error. */
+    private fun readBody(json: JsonValue.Obj?): BodyProfile {
+        if (json == null) return BodyProfile()
+        val weights = json.array("weights")?.objects.orEmpty().mapNotNull { entry ->
+            val atMs = entry.long("atMs") ?: return@mapNotNull null
+            val weightKg = entry.double("weightKg") ?: return@mapNotNull null
+            if (!weightKg.isFinite() || weightKg <= 0.0) return@mapNotNull null
+            WeightEntry(atMs = atMs, weightKg = weightKg)
+        }.sortedBy { it.atMs }.takeLast(BodyProfile.MAX_ENTRIES)
+        return BodyProfile(
+            ageYears = json.int("ageYears"),
+            heightCm = json.double("heightCm"),
+            weightEntries = weights,
+        ).sanitized()
     }
 
     private fun readSettings(json: JsonValue.Obj?): AppSettings {

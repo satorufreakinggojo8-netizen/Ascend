@@ -11,6 +11,7 @@ import com.cadence.fit.domain.core.UuidGenerator
 import com.cadence.fit.domain.library.ExerciseCatalog
 import com.cadence.fit.domain.library.ExerciseLibrary
 import com.cadence.fit.domain.model.AppSettings
+import com.cadence.fit.domain.model.BodyProfile
 import com.cadence.fit.domain.model.LoggedSet
 import com.cadence.fit.domain.model.Routine
 import com.cadence.fit.domain.model.SleepConnectionStatus
@@ -18,6 +19,7 @@ import com.cadence.fit.domain.model.SleepSummary
 import com.cadence.fit.domain.model.TrainingProfile
 import com.cadence.fit.domain.model.WorkoutSession
 import com.cadence.fit.domain.plan.PlanBuilder
+import com.cadence.fit.domain.plan.SplitTemplate
 import com.cadence.fit.domain.sleep.SleepRepository
 import com.cadence.fit.domain.units.WeightUnit
 import com.cadence.fit.domain.workout.WorkoutLogger
@@ -85,9 +87,39 @@ class CadenceViewModel(
         repository.saveSettings(settings)
     }
 
+    /** Saves optional age, height or a weight reading. Nothing here is required. */
+    fun saveBodyProfile(body: BodyProfile) = viewModelScope.launch {
+        repository.saveBodyProfile(body)
+    }
+
+    fun recordWeight(weightKg: Double) = viewModelScope.launch {
+        val next = state.value.bodyProfile.withWeight(weightKg, nowMs())
+        repository.saveBodyProfile(next)
+        announce("Weight saved for today")
+    }
+
+    /**
+     * Applies a split after the preview edits. Routines are added, never replaced,
+     * and the calendar is laid out on the split's exact weekdays.
+     */
+    fun applySplit(template: SplitTemplate, edited: SplitTemplate = template) = viewModelScope.launch {
+        val builder = PlanBuilder(catalog, UuidGenerator)
+        val application = repository.applySplit(
+            template = edited,
+            profile = state.value.profile,
+            builder = builder,
+            nowMs = nowMs(),
+        )
+        announce(
+            "${edited.name} applied · ${application.routines.size} routines and " +
+                "${application.plannedSlots.size} planned days",
+        )
+    }
+
     /** Called at the end of onboarding: saves the profile, unit and a new plan. */
     fun finishOnboarding(profile: TrainingProfile, unit: WeightUnit? = null) = viewModelScope.launch {
         val saved = profile.copy(onboardingComplete = true)
+            .withPlan("Starter plan")
         repository.saveProfile(saved)
         if (unit != null && unit != state.value.settings.weightUnit) {
             repository.saveSettings(state.value.settings.copy(weightUnit = unit))
@@ -100,18 +132,21 @@ class CadenceViewModel(
     }
 
     fun regeneratePlan() = viewModelScope.launch {
-        val profile = state.value.profile
+        val profile = state.value.profile.withPlan("Starter plan")
         val builder = PlanBuilder(catalog, UuidGenerator)
         val plan = builder.buildStarterPlan(profile, nowMs())
         repository.saveRoutines(plan.routines)
+        repository.saveProfile(profile)
         repository.ensureWeek()
         announce("Plan rebuilt from your current settings")
     }
 
     fun buildPlanFrom(profile: TrainingProfile) = viewModelScope.launch {
+        val next = profile.withPlan("Starter plan")
         val builder = PlanBuilder(catalog, UuidGenerator)
-        val plan = builder.buildStarterPlan(profile, nowMs())
+        val plan = builder.buildStarterPlan(next, nowMs())
         repository.saveRoutines(plan.routines)
+        repository.saveProfile(next)
         repository.ensureWeek()
     }
 

@@ -61,6 +61,13 @@ object Weights {
     fun formatWithUnit(kilograms: Double, unit: WeightUnit): String =
         "${format(kilograms, unit)} ${unit.abbreviation}"
 
+    /**
+     * Body weight is not a barbell load: it keeps tenths and is not snapped to the
+     * plate grid, so a reading of 78.6 kg is not shown as 78.5 kg.
+     */
+    fun formatBodyWeight(kilograms: Double, unit: WeightUnit): String =
+        "${formatAmount(unit.fromKilograms(kilograms))} ${unit.abbreviation}"
+
     /** Formats an amount that is already expressed in the user's unit. */
     fun formatAmount(amount: Double): String {
         if (!amount.isFinite()) return "--"

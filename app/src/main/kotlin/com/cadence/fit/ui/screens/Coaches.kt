@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cadence.fit.domain.coach.CoachExpression
 import com.cadence.fit.domain.coach.CoachFact
 import com.cadence.fit.domain.coach.CoachPhotoSlot
 import com.cadence.fit.domain.coach.CoachRoster
@@ -40,41 +41,27 @@ import com.cadence.fit.ui.components.CadenceTopBar
 import com.cadence.fit.ui.components.CoachPortrait
 import com.cadence.fit.ui.components.EmptyState
 import com.cadence.fit.ui.components.InfoNote
+import com.cadence.fit.ui.components.PrimaryButton
 import com.cadence.fit.ui.components.SectionHeader
 import com.cadence.fit.ui.components.SecondaryButton
 import com.cadence.fit.ui.components.ThinDivider
 
 /**
- * The coaches list. One ambassador for now, with the honest state of his profile
- * visible before it is opened: what is confirmed, and what is still waiting on
- * approved copy and photos.
+ * The coaches landing page, deliberately minimal: one portrait, the name, the
+ * role that was actually supplied, and one action. Everything explanatory lives
+ * on the coach's own page.
  */
 @Composable
 fun CoachesScreen(
-    viewModel: CadenceViewModel,
     onOpenCoach: (String) -> Unit,
     onBack: () -> Unit,
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    val sleepStatus by viewModel.sleepStatus.collectAsStateWithLifecycle()
-    val sleepSessions by viewModel.sleepSessions.collectAsStateWithLifecycle()
-    val now = viewModel.nowMs()
-    val model = remember(state, sleepSessions, sleepStatus.enabled, now) {
-        ScreenModels.coach(
-            state = state,
-            catalog = viewModel.catalog,
-            sleepSessions = if (sleepStatus.enabled) sleepSessions else emptyList(),
-            nowMs = now,
-            unit = state.settings.weightUnit,
-            topicOpen = false,
-            coachId = CoachRoster.davidLaid.id,
-        )
-    }
+    val coach = CoachRoster.davidLaid
 
     Column(Modifier.fillMaxSize()) {
         CadenceTopBar(
-            title = "Coaches",
-            subtitle = "Guidance from your own training",
+            title = "Coach",
+            subtitle = "Cadence ambassador",
             onBack = onBack,
         )
 
@@ -83,82 +70,46 @@ fun CoachesScreen(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            InfoNote(
-                "David Laid is Cadence's brand ambassador. Only details you approved are " +
-                    "shown as facts; open the profile for the full picture.",
+            Spacer(Modifier.size(6.dp))
+            CoachPortrait(
+                slot = coach.photoFor(CoachExpression.IDLE),
+                description = "${coach.name}, idle portrait",
+                corner = 26.dp,
+                modifier = Modifier.fillMaxWidth(0.82f),
             )
 
-            SectionHeader(
-                title = "Brand ambassador",
-                subtitle = "Featured in Cadence",
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(coach.name, style = MaterialTheme.typography.headlineMedium)
+                Spacer(Modifier.size(6.dp))
+                Badge(coach.role)
+            }
+
+            if (!coach.hasApprovedPhotos) {
+                Text(
+                    "Portrait placeholder · an approved photo is still needed",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+            }
+
+            PrimaryButton(
+                text = "View profile & guidance",
+                icon = CadenceIcon.ChevronRight,
+                onClick = { onOpenCoach(coach.id) },
+                modifier = Modifier.fillMaxWidth(),
             )
 
-            CadenceCard(onClick = { onOpenCoach(model.coach.id) }) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CoachPortrait(
-                        slot = model.coach.photoFor(model.presence.expression),
-                        description = model.presence.photoDescription,
-                        compact = true,
-                        corner = 16.dp,
-                        modifier = Modifier.width(78.dp),
-                    )
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(model.coach.name, style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.size(4.dp))
-                        Badge(model.coach.role)
-                        Spacer(Modifier.size(8.dp))
-                        Text(
-                            model.presence.headline,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    CadenceIcon(
-                        CadenceIcon.ChevronRight,
-                        size = 20.dp,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            CadenceCard(onClick = { onOpenCoach(model.coach.id) }) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Programs & guidance", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "${model.programs.size} routine${if (model.programs.size == 1) "" else "s"} " +
-                                "in your plan · ${model.topics.size} guidance " +
-                                "topic${if (model.topics.size == 1) "" else "s"} from your data",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    CadenceIcon(
-                        CadenceIcon.ChevronRight,
-                        size = 20.dp,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                MiniStat("${model.coach.confirmedFacts.size}", "confirmed facts")
-                MiniStat("${model.coach.photos.count { it.approved }}", "approved photos")
-                MiniStat("${model.coach.pendingFacts.size}", "awaiting approval")
-            }
-
-            InfoNote(
-                text = "Only details you supplied are shown as facts. Biography, training " +
-                    "background, programmes and official links are listed as pending until " +
-                    "approved copy exists — none of them are invented.",
-                icon = CadenceIcon.Warning,
+            Text(
+                "Programs, confirmed details and guidance built from your own logged sets.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
-
-            InfoNote(CoachRoster.DISCLAIMER)
-            Spacer(Modifier.size(8.dp))
+            Spacer(Modifier.size(12.dp))
         }
     }
 }

@@ -58,7 +58,7 @@ fun BodyMapScreen(viewModel: CadenceViewModel) {
     Column(Modifier.fillMaxSize()) {
         CadenceTopBar(
             title = "Body map",
-            subtitle = "Where your training volume went",
+            subtitle = "Training volume · not body composition",
         )
 
         Column(Modifier.padding(horizontal = 20.dp)) {
@@ -92,6 +92,11 @@ fun BodyMapScreen(viewModel: CadenceViewModel) {
             }
 
             CadenceCard {
+                SectionHeader(
+                    title = "Muscle emphasis",
+                    subtitle = "Tap a muscle group for its numbers",
+                )
+                Spacer(Modifier.size(12.dp))
                 MuscleBodyMap(
                     volumeByMuscle = window.volumeByMuscle,
                     maxVolume = window.maxVolume,

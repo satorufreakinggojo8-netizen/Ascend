@@ -110,6 +110,13 @@ class UnitsTest {
     }
 
     @Test
+    fun `body weight keeps its tenths instead of snapping to the plate grid`() {
+        assertEquals("78.6 kg", Weights.formatBodyWeight(78.6, WeightUnit.KG))
+        assertEquals("78.5 kg", Weights.formatWithUnit(78.6, WeightUnit.KG))
+        assertEquals("173.28 lb", Weights.formatBodyWeight(78.6, WeightUnit.LB))
+    }
+
+    @Test
     fun `clock formatting pads seconds`() {
         assertEquals("0:00", Durations.clock(0))
         assertEquals("1:05", Durations.clock(65))

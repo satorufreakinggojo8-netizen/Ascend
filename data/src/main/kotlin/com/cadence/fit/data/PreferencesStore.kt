@@ -2,11 +2,13 @@ package com.cadence.fit.data
 
 import com.cadence.fit.domain.library.ExerciseCatalog
 import com.cadence.fit.domain.model.AppSettings
+import com.cadence.fit.domain.model.BodyProfile
 import com.cadence.fit.domain.model.Equipment
 import com.cadence.fit.domain.model.ExperienceLevel
 import com.cadence.fit.domain.model.TrainingGoal
 import com.cadence.fit.domain.model.TrainingLocation
 import com.cadence.fit.domain.model.TrainingProfile
+import com.cadence.fit.domain.profile.BodyProfileCodec
 import com.cadence.fit.domain.sleep.SleepStateStore
 import com.cadence.fit.domain.units.WeightUnit
 
@@ -35,6 +37,8 @@ class PreferencesStore(private val store: KeyValueStore) : SleepStateStore {
                 daysPerWeek = store.getInt(KEY_DAYS, DEFAULT_DAYS).coerceIn(MIN_DAYS, MAX_DAYS),
                 sessionMinutes = store.getInt(KEY_MINUTES, DEFAULT_MINUTES)
                     .coerceIn(MIN_MINUTES, MAX_MINUTES),
+                planName = store.getString(KEY_PLAN_NAME).orEmpty(),
+                splitTemplateId = store.getString(KEY_SPLIT_ID)?.takeIf { it.isNotBlank() },
             )
         }
         set(value) {
@@ -45,6 +49,19 @@ class PreferencesStore(private val store: KeyValueStore) : SleepStateStore {
             store.putString(KEY_GOAL, value.goal.name)
             store.putInt(KEY_DAYS, value.daysPerWeek.coerceIn(MIN_DAYS, MAX_DAYS))
             store.putInt(KEY_MINUTES, value.sessionMinutes.coerceIn(MIN_MINUTES, MAX_MINUTES))
+            store.putString(KEY_PLAN_NAME, value.planName.trim())
+            val splitId = value.splitTemplateId?.trim().orEmpty()
+            if (splitId.isEmpty()) store.remove(KEY_SPLIT_ID) else store.putString(KEY_SPLIT_ID, splitId)
+        }
+
+    /**
+     * Optional age, height and weight history. Stored as one local preference so
+     * deleting all data removes it together with everything else.
+     */
+    var bodyProfile: BodyProfile
+        get() = BodyProfileCodec.decode(store.getString(KEY_BODY_PROFILE))
+        set(value) {
+            store.putString(KEY_BODY_PROFILE, BodyProfileCodec.encode(value))
         }
 
     var settings: AppSettings
@@ -127,6 +144,9 @@ class PreferencesStore(private val store: KeyValueStore) : SleepStateStore {
         const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         const val KEY_BAR_KG = "bar_weight_kg"
         const val KEY_BAR_LB = "bar_weight_lb"
+        const val KEY_PLAN_NAME = "current_plan_name"
+        const val KEY_SPLIT_ID = "current_split_id"
+        const val KEY_BODY_PROFILE = "body_profile"
         const val KEY_ACTIVE_SESSION = "active_session_id"
         const val KEY_SLEEP_ENABLED = "sleep_sync_enabled"
         const val KEY_SLEEP_LAST_SYNC = "sleep_last_sync"

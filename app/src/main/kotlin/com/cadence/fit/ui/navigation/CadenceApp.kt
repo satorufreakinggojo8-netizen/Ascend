@@ -43,6 +43,7 @@ import com.cadence.fit.ui.screens.HistoryScreen
 import com.cadence.fit.ui.screens.HomeScreen
 import com.cadence.fit.ui.screens.LibraryScreen
 import com.cadence.fit.ui.screens.LoggerScreen
+import com.cadence.fit.ui.screens.NutritionScreen
 import com.cadence.fit.ui.screens.OnboardingScreen
 import com.cadence.fit.ui.screens.PlanScreen
 import com.cadence.fit.ui.screens.ProgressScreen
@@ -50,8 +51,10 @@ import com.cadence.fit.ui.screens.RoutineEditorScreen
 import com.cadence.fit.ui.screens.ScheduleScreen
 import com.cadence.fit.ui.screens.SessionDetailScreen
 import com.cadence.fit.ui.screens.SessionSummaryScreen
+import com.cadence.fit.ui.screens.ProfileScreen
 import com.cadence.fit.ui.screens.SettingsScreen
 import com.cadence.fit.ui.screens.SleepScreen
+import com.cadence.fit.ui.screens.SplitsScreen
 
 object Routes {
     const val ONBOARDING = "onboarding"
@@ -71,6 +74,9 @@ object Routes {
     const val COACHES = "coaches"
     const val COACH = "coach"
     const val SETTINGS = "settings"
+    const val PROFILE = "profile"
+    const val NUTRITION = "nutrition"
+    const val SPLITS = "splits"
 
     fun routineEditor(routineId: String?) = "$ROUTINE_EDITOR?routineId=${routineId.orEmpty()}"
 
@@ -161,10 +167,10 @@ fun CadenceApp(viewModel: CadenceViewModel) {
                         onOpenSession = { sessionId -> navController.navigate(Routes.logger(sessionId)) },
                         onOpenPlan = { navController.navigate(Routes.PLAN) },
                         onOpenSleep = { navController.navigate(Routes.SLEEP) },
-                        onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                         onOpenLibrary = { navController.navigate(Routes.LIBRARY) },
                         onBuildPlan = { navController.navigate(Routes.ONBOARDING) },
                         onOpenSchedule = { navController.navigate(Routes.SCHEDULE) },
+                        onOpenProfile = { navController.navigate(Routes.PROFILE) },
                         onOpenCoaches = { navController.navigate(Routes.COACHES) },
                     )
                 }
@@ -178,7 +184,31 @@ fun CadenceApp(viewModel: CadenceViewModel) {
                         onStartAndOpen = { sessionId -> navController.navigate(Routes.logger(sessionId)) },
                         onOpenSchedule = { navController.navigate(Routes.SCHEDULE) },
                         onOpenCoaches = { navController.navigate(Routes.COACHES) },
+                        onOpenSplits = { navController.navigate(Routes.SPLITS) },
                     )
+                }
+
+                composable(Routes.SPLITS) {
+                    SplitsScreen(
+                        viewModel = viewModel,
+                        onBack = { navController.popBackStack() },
+                        onApplied = { navController.popBackStack() },
+                    )
+                }
+
+                composable(Routes.PROFILE) {
+                    ProfileScreen(
+                        viewModel = viewModel,
+                        onBack = { navController.popBackStack() },
+                        onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                        onOpenSplits = { navController.navigate(Routes.SPLITS) },
+                        onOpenNutrition = { navController.navigate(Routes.NUTRITION) },
+                        onRestartOnboarding = { navController.navigate(Routes.ONBOARDING) },
+                    )
+                }
+
+                composable(Routes.NUTRITION) {
+                    NutritionScreen(onBack = { navController.popBackStack() })
                 }
 
                 composable(Routes.SCHEDULE) {
@@ -310,7 +340,6 @@ fun CadenceApp(viewModel: CadenceViewModel) {
 
                 composable(Routes.COACHES) {
                     CoachesScreen(
-                        viewModel = viewModel,
                         onOpenCoach = { coachId -> navController.navigate(Routes.coach(coachId)) },
                         onBack = { navController.popBackStack() },
                     )
@@ -339,6 +368,7 @@ fun CadenceApp(viewModel: CadenceViewModel) {
                         onBack = { navController.popBackStack() },
                         onOpenSleep = { navController.navigate(Routes.SLEEP) },
                         onRestartOnboarding = { navController.navigate(Routes.ONBOARDING) },
+                        onOpenProfile = { navController.navigate(Routes.PROFILE) },
                     )
                 }
             }
