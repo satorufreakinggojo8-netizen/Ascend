@@ -3,12 +3,14 @@ package com.cadence.fit.domain.backup
 import com.cadence.fit.domain.Fixtures
 import com.cadence.fit.domain.Fixtures.NOW
 import com.cadence.fit.domain.model.AppSettings
+import com.cadence.fit.domain.model.BodyProfile
 import com.cadence.fit.domain.model.Equipment
 import com.cadence.fit.domain.model.ExperienceLevel
 import com.cadence.fit.domain.model.ScheduleStatus
 import com.cadence.fit.domain.model.ScheduledWorkout
 import com.cadence.fit.domain.model.TrainingGoal
 import com.cadence.fit.domain.model.TrainingLocation
+import com.cadence.fit.domain.model.WeightEntry
 import com.cadence.fit.domain.units.WeightUnit
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
@@ -56,8 +58,16 @@ class BackupCodecTest {
                 goal = TrainingGoal.MUSCLE_GAIN,
                 daysPerWeek = 4,
                 sessionMinutes = 60,
-            ),
+            ).withPlan("Personal 6-day", "personal-six-day"),
             settings = settings,
+            bodyProfile = BodyProfile(
+                ageYears = 31,
+                heightCm = 178.0,
+                weightEntries = listOf(
+                    WeightEntry(atMs = NOW - 7L * Fixtures.DAY_MS, weightKg = 79.4),
+                    WeightEntry(atMs = NOW, weightKg = 78.6),
+                ),
+            ),
             routines = listOf(routine),
             sessions = listOf(session),
             schedule = listOf(
@@ -93,7 +103,7 @@ class BackupCodecTest {
     fun `the encoded file declares its format and version`() {
         val text = BackupCodec.encode(document())
         assertTrue(text.contains("\"format\": \"cadence-backup\""))
-        assertTrue(text.contains("\"formatVersion\": 2"))
+        assertTrue(text.contains("\"formatVersion\": ${BackupCodec.CURRENT_FORMAT_VERSION}"))
     }
 
     @Test
@@ -159,6 +169,21 @@ class BackupCodecTest {
         assertTrue(restored.settings.showProgressLevel)
         assertEquals(20.0, restored.settings.barWeightKg, 1e-9)
         assertEquals(45.0, restored.settings.barWeightLb, 1e-9)
+        assertTrue(restored.bodyProfile == BodyProfile())
+        assertEquals("", restored.profile.planName)
+        assertNull(restored.profile.splitTemplateId)
+    }
+
+    @Test
+    fun `optional body details and the plan name survive an export and import`() {
+        val restored = BackupCodec.decode(BackupCodec.encode(document()))
+
+        assertEquals(31, restored.bodyProfile.ageYears)
+        assertEquals(178.0, restored.bodyProfile.heightCm!!, 1e-9)
+        assertEquals(2, restored.bodyProfile.weightEntries.size)
+        assertEquals(78.6, restored.bodyProfile.latestWeightKg!!, 1e-9)
+        assertEquals("Personal 6-day", restored.profile.planName)
+        assertEquals("personal-six-day", restored.profile.splitTemplateId)
     }
 
     @Test
@@ -225,6 +250,7 @@ class BackupCodecTest {
 
         assertTrue(restored.schedule.isEmpty())
         assertEquals(1, restored.formatVersion)
+        assertTrue(restored.bodyProfile == BodyProfile())
     }
 
     @Test

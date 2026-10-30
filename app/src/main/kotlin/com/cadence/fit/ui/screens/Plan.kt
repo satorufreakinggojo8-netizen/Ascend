@@ -31,6 +31,7 @@ import com.cadence.fit.ui.components.EmptyState
 import com.cadence.fit.ui.components.InfoNote
 import com.cadence.fit.ui.components.PrimaryButton
 import com.cadence.fit.ui.components.SecondaryButton
+import com.cadence.fit.ui.components.SectionHeader
 import com.cadence.fit.ui.components.ThinDivider
 
 /**
@@ -46,6 +47,7 @@ fun PlanScreen(
     onStartAndOpen: (String) -> Unit,
     onOpenSchedule: () -> Unit,
     onOpenCoaches: () -> Unit,
+    onOpenSplits: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val profile = state.profile
@@ -63,7 +65,9 @@ fun PlanScreen(
     Column(Modifier.fillMaxSize()) {
         CadenceTopBar(
             title = "Plan",
-            subtitle = "${profile.daysPerWeek} days a week · ${profile.goal.displayName}",
+            subtitle = profile.planName.ifBlank {
+                "${profile.daysPerWeek} days a week · ${profile.goal.displayName}"
+            },
             actions = listOf(
                 CadenceIcon.Calendar to onOpenSchedule,
                 CadenceIcon.Plus to onNewRoutine,
@@ -87,24 +91,18 @@ fun PlanScreen(
                     actionLabel = "Rebuild from my settings",
                     onAction = { viewModel.regeneratePlan() },
                 )
+                SecondaryButton(
+                    text = "Choose a training split",
+                    icon = CadenceIcon.Plan,
+                    onClick = onOpenSplits,
+                )
                 SecondaryButton(text = "Create a routine", onClick = onNewRoutine)
             } else {
-                InfoNote(
-                    "Built for ${profile.location.displayName.lowercase()} training with " +
-                        "${profile.availableEquipment.size} kinds of equipment available. " +
-                        "Rebuilding replaces the generated routines only.",
-                )
-
-                SecondaryButton(
-                    text = "This week's schedule",
-                    icon = CadenceIcon.Calendar,
-                    onClick = onOpenSchedule,
-                )
-
-                SecondaryButton(
-                    text = "Coaches & guidance",
-                    icon = CadenceIcon.Coach,
-                    onClick = onOpenCoaches,
+                PlanOverviewCard(
+                    profile = profile,
+                    routineCount = state.routines.size,
+                    onOpenSplits = onOpenSplits,
+                    onOpenSchedule = onOpenSchedule,
                 )
 
                 state.routines.forEach { routine ->
@@ -121,6 +119,11 @@ fun PlanScreen(
 
                 Spacer(Modifier.size(4.dp))
                 SecondaryButton(text = "New routine", icon = CadenceIcon.Plus, onClick = onNewRoutine)
+                SecondaryButton(
+                    text = "Coaches & guidance",
+                    icon = CadenceIcon.Coach,
+                    onClick = onOpenCoaches,
+                )
                 SecondaryButton(
                     text = "Rebuild starter plan",
                     icon = CadenceIcon.Undo,
@@ -142,6 +145,46 @@ fun PlanScreen(
             },
             onDismiss = { pendingDelete = null },
         )
+    }
+}
+
+@Composable
+private fun PlanOverviewCard(
+    profile: com.cadence.fit.domain.model.TrainingProfile,
+    routineCount: Int,
+    onOpenSplits: () -> Unit,
+    onOpenSchedule: () -> Unit,
+) {
+    CadenceCard {
+        SectionHeader(
+            title = profile.planName.ifBlank { "Your plan" },
+            subtitle = if (profile.splitTemplateId != null) {
+                "From the training split library"
+            } else {
+                "Built from your training answers"
+            },
+        )
+        Spacer(Modifier.size(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+            MiniStat("$routineCount", "routines")
+            MiniStat("${profile.daysPerWeek}", "days / week")
+            MiniStat("${profile.sessionMinutes}", "min target")
+        }
+        Spacer(Modifier.size(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SecondaryButton(
+                text = "Training split",
+                icon = CadenceIcon.Plan,
+                onClick = onOpenSplits,
+                modifier = Modifier.weight(1f),
+            )
+            SecondaryButton(
+                text = "This week",
+                icon = CadenceIcon.Calendar,
+                onClick = onOpenSchedule,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
 

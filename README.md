@@ -41,18 +41,21 @@ Rules that keep it modular:
 | Today's workout, one primary action, week strip, small summary | `ui/screens/Home.kt` |
 | Training calendar: plan a week, reschedule, skip, link a session | `ui/screens/Schedule.kt`, `domain/schedule/SchedulePlanner.kt` |
 | Plan templates (strength, muscle, general fitness, home) and active routine | `ui/screens/Plan.kt`, `domain/plan/PlanBuilder.kt` |
+| Weekly split library, including the featured six-day split, with a preview you can edit before applying | `ui/screens/Splits.kt`, `domain/plan/SplitTemplates.kt` |
+| Profile: optional age/height/weight, weight trend, current plan, export/delete coverage | `ui/screens/Profile.kt`, `domain/model/BodyProfile.kt` |
+| Nutrition-app area that honestly says "Not connected yet" plus the future boundary | `ui/screens/Nutrition.kt`, `docs/nutrition-integration.md` |
 | Create and edit routines, supersets, rep ranges, exercise swaps | `ui/screens/RoutineEditor.kt`, `domain/library/Substitutions.kt` |
 | Fast set logging, warm-ups, rest timer, RPE/notes, undo | `ui/screens/Logger.kt`, `domain/workout/WorkoutLogger.kt` |
 | Optional plate calculator with per-side loads, shortfall and next weight | `ui/components/PlateCalculatorSheet.kt`, `domain/units/PlateCalculator.kt` |
 | Post-workout summary: volume, records, comparison, muscle split | `ui/screens/SessionSummary.kt`, `domain/insight/SessionSummaryBuilder.kt` |
-| Exercise library with search, filters, instructions, artwork | `ui/screens/Library.kt`, `domain/library/*` |
+| Exercise library with search, filters, tap-to-speak voice search, instructions, artwork | `ui/screens/Library.kt`, `ui/voice/VoiceSearch.kt`, `domain/library/*` |
 | Progression suggestions you can accept, edit or ignore | `domain/progression/ProgressionEngine.kt`, `ui/screens/ExerciseDetail.kt` |
 | Plateau and deload guidance | same engine, surfaced on Progress |
 | Charts: strength, consistency, volume, with windows and tap-through to the week in history | `ui/components/Charts.kt`, `domain/insight/ChartData.kt`, `ui/screens/Progress.kt` |
 | Muscle balance insight with an honest measured/estimate split | `ui/screens/Progress.kt`, `domain/math/WorkoutMath.kt` |
-| Front/back muscle map shaded by logged volume | `ui/art/MuscleBodyMap.kt`, `ui/screens/BodyMap.kt` |
+| Anatomical front/back muscle map with a text scale, hatch key and screen-reader summary | `ui/art/MuscleBodyMap.kt`, `ui/screens/BodyMap.kt` |
 | Optional level tiers with an explained benchmark you can hide | `domain/insight/LevelAssessor.kt` |
-| Coaches: David Laid as brand ambassador, verified facts only, state-driven portraits, guidance from logged data | `ui/screens/Coaches.kt`, `domain/coach/*`, `docs/coach-assets.md` |
+| Coaches: minimal ambassador landing page, David Laid's profile, verified facts only, state-driven portraits, guidance from logged data | `ui/screens/Coaches.kt`, `domain/coach/*`, `docs/coach-assets.md` |
 | Optional sleep context | `ui/screens/Sleep.kt`, `domain/sleep/SleepRepository.kt`, `docs/health-connect-nocta.md` |
 | Privacy, export, delete | `ui/screens/Settings.kt`, `domain/backup/BackupCodec.kt`, `data/BackupService.kt` |
 
@@ -96,7 +99,7 @@ release install.
 ## Tests
 
 ```bash
-./gradlew test          # 342 tests: 292 domain, 21 data, 15 integrations, 14 app
+./gradlew test          # 400 tests: 329 domain, 24 data, 15 integrations, 32 app
 ```
 
 They cover the parts that are easy to get subtly wrong:
@@ -120,14 +123,30 @@ They cover the parts that are easy to get subtly wrong:
   only when their data exists, that pending profile details are never presented as
   claims, and that unapproved photo slots are marked missing
 - sleep: permission denied, revoked, unavailable SDK, update required, no data
-- backup/export round-trip and JSON stability
+- backup/export round-trip and JSON stability, including optional body details and the
+  current plan name, plus older backups importing with sensible defaults
 - plan builder output for each goal and equipment set
+- splits: the featured six-day mapping, no chest on Monday, Sunday rest, day toggles,
+  renames, exact weekday scheduling, two-week planning, completed-day preservation,
+  past-day exclusion, equipment filtering and future-week planning
+- profile: optional fields, same-day weight replacement, clamping, trend maths, local
+  codec round-trip and corrupt-preference fallback
+- voice search: unavailable and permission-denied states, granted flow, editable
+  transcript, empty-result fallback, error mapping and text normalisation
+- body map: every group drawn on the correct side, conditioning excluded, and the
+  intensity-band boundaries
 
 ## Data and privacy
 
-- Workout history, routines and preferences are stored locally in SQLite and
+- Workout history, routines, plan and preferences are stored locally in SQLite and
   `SharedPreferences`. Nothing leaves the device.
+- Optional age, height and weight readings live in a local preference and are removed
+  by "Delete all data". They are included in an export only because the export is the
+  user's own file.
 - No account is required, and there is no network permission in the manifest.
+- The microphone is requested only when the library's voice-search control is tapped.
+  Cadence listens only while that screen is in front of the user and stops on leave;
+  speech recognition is handled by the system service. Text search always works.
 - Export writes a plain JSON file through the system file picker. Delete removes local
   data and asks for confirmation.
 - Sleep is off until you turn it on, reads only sleep sessions, and can be disconnected
@@ -142,52 +161,28 @@ the smallest change Nocta needs if it does not publish yet.
 
 ## What is verified, and what needs a device
 
-Verified here: all 342 unit tests pass, `assembleDebug` produces an installable APK, and
+Verified here: all 400 unit tests pass, `assembleDebug` produces an installable APK, and
 the whole app module compiles against the pinned dependency set. The calendar is covered
-by planner tests (generation, moving, skipping, session linking, midnight boundaries)
-and the home model is tested against a fixed clock and timezone.
+by planner tests (generation, moving, skipping, session linking, midnight boundaries),
+and the home model is tested against a fixed clock and timezone. The database schema is
+unchanged in this upgrade (optional details use local preferences), so no new migration
+is introduced; the existing v1→v2 calendar upgrade remains covered by its additive path.
 
-Not verifiable in this environment (no emulator, no Health Connect provider, no Nocta
-build): rendering on a physical screen, the real Health Connect permission dialog, the
-SQLite migration on a device that already has data, and reading real sleep sessions.
-The steps to check those are in the integration note.
+Not verifiable in this environment (no emulator, no microphone, no Health Connect
+provider, no Nocta build): rendering on a physical screen, the real microphone prompt
+and on-device recognition, the Health Connect permission dialog, the SQLite upgrade on a
+device that already has data, and reading real sleep sessions. The steps to check those
+are in the integration notes. The David Laid portraits are still placeholders because no
+approved photographs are in the repository.
 
-## Publishing
+## Repository
 
-This is a standalone local Git repository. Its history is on `master` (initial commit)
-and `feature/cadence-training-upgrades` (the training upgrades and the Coaches section).
+Cadence lives at the root of the `Ascend` repository:
+`satorufreakinggojo8-netizen/Ascend`. `main` holds the complete app and the Android CI
+workflow; work lands through feature branches and pull requests. This upgrade is on
+`feature/premium-training-profile`, opened as a pull request into `main` for review.
+No history is rewritten and nothing is force-pushed.
 
-**Nothing has been pushed, and no pull request exists.** The intended target is the
-`Ascend` repository, but this machine has no GitHub authentication: `gh` is not
-installed, `GH_TOKEN`/`GITHUB_TOKEN` are unset, there is no SSH key, `git credential
-fill` finds no stored credential, `https://api.github.com/user` returns 401, and no
-`Ascend` remote or local copy is reachable from this workspace. Until access is
-available the repository below cannot be found or verified, so no branch was pushed.
-The public account `abhinavsinghrawat` is visible, but none of its six public
-repositories is named `Ascend`, so `Ascend` is private or lives under another owner;
-either way its default branch cannot be read without authentication.
-
-Once authenticated, this keeps Cadence in its own directory inside `Ascend` and
-preserves both histories (`git subtree` adds merge commits; nothing is rewritten and
-nothing is force-pushed):
-
-```bash
-# 1. Confirm the repository and its default branch first.
-gh repo view <owner>/Ascend --json defaultBranchRef,name
-
-# 2. Merge Cadence into a subdirectory on a feature branch off that default branch.
-git clone git@github.com:<owner>/Ascend.git && cd Ascend
-git remote add cadence <path-to-this-repo>
-git fetch cadence
-git switch -c feature/cadence-coaches origin/<default-branch>
-git subtree add --prefix=cadence cadence/feature/cadence-training-upgrades
-
-# 3. Push and open the PR for review (do not merge).
-git push -u origin feature/cadence-coaches
-gh pr create --base <default-branch> --head feature/cadence-coaches \
-  --title "Add Cadence training app with Coaches section" --fill
-```
-
-If you use HTTPS instead of SSH, `git push` will prompt for a personal access token the
-first time and the credential manager will store it. The four approved David Laid
-portraits should be added before the PR is merged; see `docs/coach-assets.md`.
+The CI workflow runs `./gradlew test assembleDebug` on JDK 17 and uploads the debug APK
+as a build artifact. The four approved David Laid portraits are still missing before the
+Coaches photo feature can be called complete; see `docs/coach-assets.md`.

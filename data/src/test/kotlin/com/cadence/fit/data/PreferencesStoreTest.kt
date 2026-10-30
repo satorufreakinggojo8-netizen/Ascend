@@ -1,5 +1,6 @@
 package com.cadence.fit.data
 
+import com.cadence.fit.domain.model.BodyProfile
 import com.cadence.fit.domain.model.Equipment
 import com.cadence.fit.domain.model.ExperienceLevel
 import com.cadence.fit.domain.model.TrainingGoal
@@ -96,6 +97,39 @@ class PreferencesStoreTest {
         store.profile = profile
 
         assertEquals(profile, store.profile)
+    }
+
+    @Test
+    fun `the current plan label survives a round trip`() {
+        val profile = store.profile.withPlan("Personal 6-day", "personal-six-day")
+        store.profile = profile
+
+        assertEquals("Personal 6-day", store.profile.planName)
+        assertEquals("personal-six-day", store.profile.splitTemplateId)
+    }
+
+    @Test
+    fun `optional body details stay local and survive a round trip`() {
+        val body = BodyProfile(ageYears = 28, heightCm = 175.0)
+            .withWeight(74.2, 1_700_000_000_000L)
+        store.bodyProfile = body
+
+        val reloaded = PreferencesStore(keyValues).bodyProfile
+        assertEquals(28, reloaded.ageYears)
+        assertEquals(175.0, reloaded.heightCm!!, 1e-9)
+        assertEquals(74.2, reloaded.latestWeightKg!!, 1e-9)
+    }
+
+    @Test
+    fun `deleting all preferences clears body details and the plan name`() {
+        store.profile = store.profile.withPlan("Full body", "full-body-three")
+        store.bodyProfile = BodyProfile(ageYears = 30).withWeight(80.0, 1_700_000_000_000L)
+
+        store.clearAll()
+
+        assertEquals(BodyProfile(), store.bodyProfile)
+        assertEquals("", store.profile.planName)
+        assertNull(store.profile.splitTemplateId)
     }
 
     @Test

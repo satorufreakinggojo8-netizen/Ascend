@@ -8,6 +8,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,12 +48,14 @@ fun CadenceCard(
     content: @Composable () -> Unit,
 ) {
     val shape = MaterialTheme.shapes.medium
+    val border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
     if (onClick == null) {
         Surface(
             modifier = modifier.fillMaxWidth(),
             shape = shape,
             color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 1.dp,
+            tonalElevation = 0.dp,
+            border = border,
         ) {
             Column(Modifier.padding(18.dp)) { content() }
         }
@@ -61,7 +64,8 @@ fun CadenceCard(
             modifier = modifier.fillMaxWidth(),
             shape = shape,
             color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 1.dp,
+            tonalElevation = 0.dp,
+            border = border,
             onClick = onClick,
         ) {
             Column(Modifier.padding(18.dp)) { content() }
@@ -247,7 +251,7 @@ fun PrimaryButton(
             .clip(MaterialTheme.shapes.small)
             .background(background)
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 15.dp, horizontal = 18.dp),
+            .padding(vertical = 16.dp, horizontal = 18.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -360,8 +364,8 @@ fun FilterChip(
                 BorderStroke(1.dp, if (selected) background else MaterialTheme.colorScheme.outline),
                 CircleShape,
             )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .selectable(selected = selected, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 9.dp),
     ) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = foreground)
     }

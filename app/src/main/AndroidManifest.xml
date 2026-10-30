@@ -2,19 +2,29 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
-      The only permission Cadence requests. It is asked for on the Sleep screen,
-      after the benefit has been explained, and can be revoked at any time from
-      the app or from Health Connect itself.
+      Two narrow permissions, both asked for only after the user taps something
+      that needs them:
+
+      - health.READ_SLEEP: asked for on the Sleep screen, after the benefit has
+        been explained. Revocable in Cadence or in Health Connect.
+      - RECORD_AUDIO: asked for only when the microphone control in the exercise
+        library is tapped. Speech recognition is handled by the system service; the
+        app listens only while the library screen is in front of the user.
 
       There is no INTERNET permission: the app has no networking code and never
-      sends workout or sleep data anywhere.
+      sends workout, profile or sleep data anywhere.
     -->
     <uses-permission android:name="android.permission.health.READ_SLEEP" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
         <intent>
             <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+        </intent>
+        <!-- Android 11+ package visibility for the on-device speech service. -->
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
 

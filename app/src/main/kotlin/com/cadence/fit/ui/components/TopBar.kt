@@ -37,7 +37,7 @@ fun CadenceTopBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onBack != null) {
@@ -61,7 +61,7 @@ fun CadenceTopBar(
         }
 
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
+            Text(title, style = MaterialTheme.typography.headlineSmall)
             if (subtitle != null) {
                 Text(
                     subtitle,
