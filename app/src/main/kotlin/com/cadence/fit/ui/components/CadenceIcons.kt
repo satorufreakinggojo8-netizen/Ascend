@@ -28,6 +28,7 @@ enum class CadenceIcon {
     Plan,
     Progress,
     Body,
+    Coach,
     Settings,
     Sleep,
     Dumbbell,
@@ -49,6 +50,7 @@ enum class CadenceIcon {
     Calendar,
     Book,
     Warning,
+    Camera,
 }
 
 @Composable
@@ -73,6 +75,7 @@ fun CadenceIcon(
             CadenceIcon.Plan -> drawPlan(unit, tint, width)
             CadenceIcon.Progress -> drawProgress(unit, tint, width)
             CadenceIcon.Body -> drawBody(unit, tint, width)
+            CadenceIcon.Coach -> drawCoach(unit, tint, width)
             CadenceIcon.Settings -> drawSettings(unit, tint, width)
             CadenceIcon.Sleep -> drawSleep(unit, tint, width)
             CadenceIcon.Dumbbell -> drawDumbbell(unit, tint, width)
@@ -94,6 +97,7 @@ fun CadenceIcon(
             CadenceIcon.Calendar -> drawCalendar(unit, tint, width)
             CadenceIcon.Book -> drawBook(unit, tint, width)
             CadenceIcon.Warning -> drawWarning(unit, tint, width)
+            CadenceIcon.Camera -> drawCamera(unit, tint, width)
         }
     }
 }
@@ -178,6 +182,38 @@ private fun DrawScope.drawBody(unit: Float, color: Color, width: Float) {
     line(6.5f * unit, 9.5f * unit, 17.5f * unit, 9.5f * unit, color, width)
     line(12f * unit, 15f * unit, 8.5f * unit, 21f * unit, color, width)
     line(12f * unit, 15f * unit, 15.5f * unit, 21f * unit, color, width)
+}
+
+private fun DrawScope.drawCamera(unit: Float, color: Color, width: Float) {
+    val stroke = strokeStyle(unit, width)
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(3f * unit, 7.5f * unit),
+        size = Size(18f * unit, 12.5f * unit),
+        cornerRadius = CornerRadius(3f * unit, 3f * unit),
+        style = stroke,
+    )
+    drawCircle(color, radius = 3.4f * unit, center = Offset(12f * unit, 13.8f * unit), style = stroke)
+    line(9f * unit, 7.5f * unit, 10f * unit, 5.5f * unit, color, width)
+    line(10f * unit, 5.5f * unit, 14f * unit, 5.5f * unit, color, width)
+    line(14f * unit, 5.5f * unit, 15f * unit, 7.5f * unit, color, width)
+}
+
+private fun DrawScope.drawCoach(unit: Float, color: Color, width: Float) {
+    val stroke = strokeStyle(unit, width)
+    // A portrait bust, distinct from the full-body muscle-map figure.
+    drawCircle(
+        color,
+        radius = 3.7f * unit,
+        center = Offset(12f * unit, 8.2f * unit),
+        style = stroke,
+    )
+    val shoulders = Path().apply {
+        moveTo(4.8f * unit, 20.6f * unit)
+        cubicTo(4.8f * unit, 16.4f * unit, 8f * unit, 14.2f * unit, 12f * unit, 14.2f * unit)
+        cubicTo(16f * unit, 14.2f * unit, 19.2f * unit, 16.4f * unit, 19.2f * unit, 20.6f * unit)
+    }
+    drawPath(shoulders, color, style = stroke)
 }
 
 private fun DrawScope.drawSettings(unit: Float, color: Color, width: Float) {

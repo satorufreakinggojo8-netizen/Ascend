@@ -52,6 +52,7 @@ Rules that keep it modular:
 | Muscle balance insight with an honest measured/estimate split | `ui/screens/Progress.kt`, `domain/math/WorkoutMath.kt` |
 | Front/back muscle map shaded by logged volume | `ui/art/MuscleBodyMap.kt`, `ui/screens/BodyMap.kt` |
 | Optional level tiers with an explained benchmark you can hide | `domain/insight/LevelAssessor.kt` |
+| Coaches: David Laid as brand ambassador, verified facts only, state-driven portraits, guidance from logged data | `ui/screens/Coaches.kt`, `domain/coach/*`, `docs/coach-assets.md` |
 | Optional sleep context | `ui/screens/Sleep.kt`, `domain/sleep/SleepRepository.kt`, `docs/health-connect-nocta.md` |
 | Privacy, export, delete | `ui/screens/Settings.kt`, `domain/backup/BackupCodec.kt`, `data/BackupService.kt` |
 
@@ -62,6 +63,12 @@ pages and the app icon are drawn in code from primitives (`ui/art/MuscleBodyMap.
 `ui/art/ExerciseArtwork.kt`, `res/drawable/ic_launcher.xml`). They are original to this
 repository and carry no third-party licence obligations. Icons are hand-built Compose
 `Path`s in `ui/components/CadenceIcons.kt` rather than a branded icon set.
+
+Coach portraits are the exception: they are **not** in this repository. The Coaches
+section needs four real, brand-approved photographs of David Laid, and until they are
+supplied each expression renders a dashed placeholder that names the missing resource.
+Cadence never substitutes a stock image, another person, or a generated expression.
+The full list, framing rules and permission checklist are in `docs/coach-assets.md`.
 
 ## Build
 
@@ -89,7 +96,7 @@ release install.
 ## Tests
 
 ```bash
-./gradlew test          # 321 tests: 276 domain, 21 data, 15 integrations, 9 app
+./gradlew test          # 342 tests: 292 domain, 21 data, 15 integrations, 14 app
 ```
 
 They cover the parts that are easy to get subtly wrong:
@@ -108,6 +115,10 @@ They cover the parts that are easy to get subtly wrong:
   switched mid-entry, volume formatting, duration formatting
 - charts and summaries: windows, bucketing, personal records, consistency counts
 - levels and recovery wording, including the "not enough data" cases
+- coaches: which portrait expression each app state selects (topic reading, session in
+  progress, work logged today, a ready suggestion, idle), which guidance topics appear
+  only when their data exists, that pending profile details are never presented as
+  claims, and that unapproved photo slots are marked missing
 - sleep: permission denied, revoked, unavailable SDK, update required, no data
 - backup/export round-trip and JSON stability
 - plan builder output for each goal and equipment set
@@ -131,7 +142,7 @@ the smallest change Nocta needs if it does not publish yet.
 
 ## What is verified, and what needs a device
 
-Verified here: all 321 unit tests pass, `assembleDebug` produces an installable APK, and
+Verified here: all 342 unit tests pass, `assembleDebug` produces an installable APK, and
 the whole app module compiles against the pinned dependency set. The calendar is covered
 by planner tests (generation, moving, skipping, session linking, midnight boundaries)
 and the home model is tested against a fixed clock and timezone.
@@ -144,21 +155,36 @@ The steps to check those are in the integration note.
 ## Publishing
 
 This is a standalone local Git repository. Its history is on `master` (initial commit)
-and `feature/cadence-training-upgrades` (the training upgrades). No hosted remote exists
-yet because this machine has no GitHub authentication: `gh` is not installed, there is
-no `GH_TOKEN`/`GITHUB_TOKEN`, no SSH key, and `git credential fill` cannot find a stored
-credential. To publish:
+and `feature/cadence-training-upgrades` (the training upgrades and the Coaches section).
+
+**Nothing has been pushed, and no pull request exists.** The intended target is the
+`Ascend` repository, but this machine has no GitHub authentication: `gh` is not
+installed, `GH_TOKEN`/`GITHUB_TOKEN` are unset, there is no SSH key, `git credential
+fill` finds no stored credential, `https://api.github.com/user` returns 401, and no
+`Ascend` remote or local copy is reachable from this workspace. Until access is
+available the repository below cannot be found or verified, so no branch was pushed.
+
+Once authenticated, this keeps Cadence in its own directory inside `Ascend` and
+preserves both histories (`git subtree` adds merge commits; nothing is rewritten and
+nothing is force-pushed):
 
 ```bash
-# 1. Create an empty private repository named cadence-fit on GitHub, then:
-git branch -M main
-git remote add origin git@github.com:<your-account>/cadence-fit.git
-git push -u origin main
-git push -u origin feature/cadence-training-upgrades
+# 1. Confirm the repository and its default branch first.
+gh repo view <owner>/Ascend --json defaultBranchRef,name
 
-# 2. Open the pull request (web UI, or with the GitHub CLI:
-#    gh pr create --base main --head feature/cadence-training-upgrades --fill)
+# 2. Merge Cadence into a subdirectory on a feature branch off that default branch.
+git clone git@github.com:<owner>/Ascend.git && cd Ascend
+git remote add cadence <path-to-this-repo>
+git fetch cadence
+git switch -c feature/cadence-coaches origin/<default-branch>
+git subtree add --prefix=cadence cadence/feature/cadence-training-upgrades
+
+# 3. Push and open the PR for review (do not merge).
+git push -u origin feature/cadence-coaches
+gh pr create --base <default-branch> --head feature/cadence-coaches \
+  --title "Add Cadence training app with Coaches section" --fill
 ```
 
 If you use HTTPS instead of SSH, `git push` will prompt for a personal access token the
-first time and the credential manager will store it.
+first time and the credential manager will store it. The four approved David Laid
+portraits should be added before the PR is merged; see `docs/coach-assets.md`.

@@ -45,6 +45,7 @@ fun PlanScreen(
     onStartRoutine: (String) -> Unit,
     onStartAndOpen: (String) -> Unit,
     onOpenSchedule: () -> Unit,
+    onOpenCoaches: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val profile = state.profile
@@ -98,6 +99,12 @@ fun PlanScreen(
                     text = "This week's schedule",
                     icon = CadenceIcon.Calendar,
                     onClick = onOpenSchedule,
+                )
+
+                SecondaryButton(
+                    text = "Coaches & guidance",
+                    icon = CadenceIcon.Coach,
+                    onClick = onOpenCoaches,
                 )
 
                 state.routines.forEach { routine ->

@@ -36,6 +36,8 @@ import com.cadence.fit.ui.CadenceViewModel
 import com.cadence.fit.ui.components.CadenceIcon
 import com.cadence.fit.ui.components.CadenceProgressBar
 import com.cadence.fit.ui.screens.BodyMapScreen
+import com.cadence.fit.ui.screens.CoachProfileScreen
+import com.cadence.fit.ui.screens.CoachesScreen
 import com.cadence.fit.ui.screens.ExerciseDetailScreen
 import com.cadence.fit.ui.screens.HistoryScreen
 import com.cadence.fit.ui.screens.HomeScreen
@@ -66,6 +68,8 @@ object Routes {
     const val PROGRESS = "progress"
     const val BODY_MAP = "bodymap"
     const val SLEEP = "sleep"
+    const val COACHES = "coaches"
+    const val COACH = "coach"
     const val SETTINGS = "settings"
 
     fun routineEditor(routineId: String?) = "$ROUTINE_EDITOR?routineId=${routineId.orEmpty()}"
@@ -78,6 +82,8 @@ object Routes {
     fun session(sessionId: String) = "$SESSION?sessionId=$sessionId"
 
     fun summary(sessionId: String) = "$SUMMARY?sessionId=$sessionId"
+
+    fun coach(coachId: String) = "$COACH?coachId=$coachId"
 
     /** History, optionally narrowed to the week starting [weekStartEpochDay]. */
     fun history(weekStartEpochDay: Long? = null) =
@@ -159,6 +165,7 @@ fun CadenceApp(viewModel: CadenceViewModel) {
                         onOpenLibrary = { navController.navigate(Routes.LIBRARY) },
                         onBuildPlan = { navController.navigate(Routes.ONBOARDING) },
                         onOpenSchedule = { navController.navigate(Routes.SCHEDULE) },
+                        onOpenCoaches = { navController.navigate(Routes.COACHES) },
                     )
                 }
 
@@ -170,6 +177,7 @@ fun CadenceApp(viewModel: CadenceViewModel) {
                         onStartRoutine = { routineId -> viewModel.startSession(routineId) },
                         onStartAndOpen = { sessionId -> navController.navigate(Routes.logger(sessionId)) },
                         onOpenSchedule = { navController.navigate(Routes.SCHEDULE) },
+                        onOpenCoaches = { navController.navigate(Routes.COACHES) },
                     )
                 }
 
@@ -298,6 +306,31 @@ fun CadenceApp(viewModel: CadenceViewModel) {
 
                 composable(Routes.SLEEP) {
                     SleepScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+                }
+
+                composable(Routes.COACHES) {
+                    CoachesScreen(
+                        viewModel = viewModel,
+                        onOpenCoach = { coachId -> navController.navigate(Routes.coach(coachId)) },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+
+                composable(
+                    route = "${Routes.COACH}?coachId={coachId}",
+                    arguments = listOf(navArgument("coachId") { type = NavType.StringType; defaultValue = "" }),
+                ) { entry ->
+                    CoachProfileScreen(
+                        viewModel = viewModel,
+                        coachId = entry.arguments?.getString("coachId").orEmpty(),
+                        onBack = { navController.popBackStack() },
+                        onOpenRoutine = { routineId ->
+                            navController.navigate(Routes.routineEditor(routineId))
+                        },
+                        onOpenExercise = { exerciseId -> navController.navigate(Routes.exercise(exerciseId)) },
+                        onOpenSleep = { navController.navigate(Routes.SLEEP) },
+                        onOpenProgress = { navController.navigate(Routes.PROGRESS) },
+                    )
                 }
 
                 composable(Routes.SETTINGS) {

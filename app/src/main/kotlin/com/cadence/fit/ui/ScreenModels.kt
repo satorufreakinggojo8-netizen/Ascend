@@ -1,6 +1,12 @@
 package com.cadence.fit.ui
 
 import com.cadence.fit.data.CadenceState
+import com.cadence.fit.domain.coach.CoachContext
+import com.cadence.fit.domain.coach.CoachDirector
+import com.cadence.fit.domain.coach.CoachPresence
+import com.cadence.fit.domain.coach.CoachProfile
+import com.cadence.fit.domain.coach.CoachRoster
+import com.cadence.fit.domain.coach.CoachTopic
 import com.cadence.fit.domain.insight.ChartData
 import com.cadence.fit.domain.insight.LevelAssessment
 import com.cadence.fit.domain.insight.LevelAssessor
@@ -22,6 +28,7 @@ import com.cadence.fit.domain.schedule.SchedulePlanner
 import com.cadence.fit.domain.progression.PlateauInsight
 import com.cadence.fit.domain.progression.ProgressionEngine
 import com.cadence.fit.domain.progression.ProgressionRecommendation
+import com.cadence.fit.domain.progression.SuggestionKind
 import com.cadence.fit.domain.time.TimeRanges
 import com.cadence.fit.domain.units.WeightUnit
 import com.cadence.fit.domain.workout.PreviousPerformance
@@ -96,6 +103,19 @@ data class ProgressModel(
     val plateau: PlateauInsight?,
     val level: LevelAssessment?,
     val muscleWindow: MuscleWindow,
+)
+
+/**
+ * Everything a coach page shows, derived from stored state. [programs] are the
+ * user's own routines: Cadence does not publish coach-authored programmes until
+ * approved content exists.
+ */
+data class CoachModel(
+    val coach: CoachProfile,
+    val context: CoachContext,
+    val presence: CoachPresence,
+    val topics: List<CoachTopic>,
+    val programs: List<Routine>,
 )
 
 /**
@@ -257,6 +277,91 @@ object ScreenModels {
         nowMs: Long,
         zone: ZoneId = TimeRanges.zone(),
     ): RecoveryContext? = RecoveryAdvisor.assess(sleepSessions, nowMs, enabled, zone)
+
+    fun coach(
+        state: CadenceState,
+        catalog: ExerciseCatalog,
+        sleepSessions: List<SleepSummary>,
+        nowMs: Long,
+        unit: WeightUnit,
+        topicOpen: Boolean,
+        coachId: String = CoachRoster.davidLaid.id,
+        zone: ZoneId = TimeRanges.zone(),
+    ): CoachModel {
+        val coach = CoachRoster.byId(coachId) ?: CoachRoster.davidLaid
+        val context = coachContext(
+            state = state,
+            catalog = catalog,
+            sleepSessions = sleepSessions,
+            nowMs = nowMs,
+            unit = unit,
+            topicOpen = topicOpen,
+            zone = zone,
+        )
+        return CoachModel(
+            coach = coach,
+            context = context,
+            presence = CoachDirector.presence(context, coach),
+            topics = CoachDirector.topics(context),
+            programs = state.routines,
+        )
+    }
+
+    /**
+     * Reads the coach's cues from real state: the session in progress, completed
+     * sessions today, best sets from the last seven days, the first actionable
+     * progression suggestion, and how many sleep nights are actually available.
+     */
+    fun coachContext(
+        state: CadenceState,
+        catalog: ExerciseCatalog,
+        sleepSessions: List<SleepSummary>,
+        nowMs: Long,
+        unit: WeightUnit,
+        topicOpen: Boolean,
+        zone: ZoneId = TimeRanges.zone(),
+    ): CoachContext {
+        val completed = state.completedSessions
+        val today = TimeRanges.toLocalDate(nowMs, zone)
+        val summary = ChartData.summary(state.sessions, nowMs, state.profile.daysPerWeek, zone)
+        val records = WorkoutMath.recentPersonalRecords(
+            sessions = completed,
+            exerciseIds = WorkoutMath.trainedExerciseIds(completed),
+            nowMs = nowMs,
+            windowDays = 7,
+        )
+        val engine = ProgressionEngine(catalog)
+        val suggestion = state.routines.firstNotNullOfOrNull { routine ->
+            routine.exercises.firstNotNullOfOrNull { slot ->
+                val recommendation = engine.recommend(slot, state.sessions, routine.goal, unit)
+                if (recommendation.kind == SuggestionKind.HOLD) null else recommendation to slot.exerciseId
+            }
+        }
+        val plateau = engine.deloadInsight(
+            state.sessions,
+            WorkoutMath.trainedExerciseIds(completed),
+            nowMs,
+        )
+
+        return CoachContext(
+            hasActiveSession = state.activeSession != null,
+            workingSetsThisSession = state.activeSession?.workingSets?.size ?: 0,
+            sessionsCompletedToday = completed.count {
+                TimeRanges.toLocalDate(it.completedAtMs, zone) == today
+            },
+            recordsThisWeek = records.size,
+            suggestionHeadline = suggestion?.first?.headline,
+            suggestionExerciseId = suggestion?.second,
+            suggestionExerciseName = suggestion?.second?.let { exerciseId -> catalog.byId(exerciseId)?.name },
+            plateauHeadline = plateau?.headline,
+            sessionsThisWeek = summary.sessionsThisWeek,
+            targetSessionsPerWeek = state.profile.daysPerWeek,
+            sleepNightsAvailable = sleepSessions.count { it.startMs >= nowMs - SEVEN_DAYS_MS },
+            topicOpen = topicOpen,
+        )
+    }
+
+    private const val SEVEN_DAYS_MS = 7L * 24L * 60L * 60L * 1000L
 
     fun exerciseDetail(
         state: CadenceState,

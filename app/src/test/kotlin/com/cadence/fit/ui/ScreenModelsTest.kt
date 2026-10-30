@@ -1,15 +1,18 @@
 package com.cadence.fit.ui
 
 import com.cadence.fit.data.CadenceState
+import com.cadence.fit.domain.coach.CoachExpression
 import com.cadence.fit.domain.library.ExerciseLibrary
 import com.cadence.fit.domain.model.LoggedSet
 import com.cadence.fit.domain.model.Routine
 import com.cadence.fit.domain.model.RoutineExercise
 import com.cadence.fit.domain.model.ScheduleStatus
 import com.cadence.fit.domain.model.ScheduledWorkout
+import com.cadence.fit.domain.model.SleepSummary
 import com.cadence.fit.domain.model.TrainingProfile
 import com.cadence.fit.domain.model.WorkoutSession
 import com.cadence.fit.domain.time.TimeRanges
+import com.cadence.fit.domain.units.WeightUnit
 import java.time.LocalDate
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
@@ -255,5 +258,133 @@ class ScreenModelsTest {
         assertTrue(ranking.all { it.first.appearsOnBodyMap })
         assertEquals(ranking.sortedByDescending { it.second }, ranking)
         assertNull(ranking.firstOrNull { it.first.displayName == "Conditioning" })
+    }
+
+    // --- Coaches --------------------------------------------------------------
+
+    private fun sleepNight(id: String, minutes: Int) = SleepSummary(
+        id = id,
+        startMs = now - 9 * 60 * 60 * 1000L,
+        endMs = now - 9 * 60 * 60 * 1000L + minutes * 60_000L,
+        durationMinutes = minutes,
+    )
+
+    private fun openSession(routine: Routine, at: Long) = WorkoutSession(
+        id = "open",
+        routineId = routine.id,
+        routineName = routine.name,
+        startedAtMs = at - 30 * 60_000L,
+        sets = listOf(
+            LoggedSet(
+                id = "open-set-1",
+                sessionId = "open",
+                exerciseId = "goblet-squat",
+                setIndex = 1,
+                weightKg = 24.0,
+                reps = 10,
+                completedAtMs = at - 10 * 60_000L,
+            ),
+        ),
+    )
+
+    @Test
+    fun `an in-progress session makes the coach encouraging and lists the plan as programs`() {
+        val dayA = routine("routine-a", "Full body A")
+        val open = openSession(dayA, now)
+        val model = ScreenModels.coach(
+            state(listOf(dayA), sessions = listOf(open), activeSessionId = open.id),
+            ExerciseLibrary,
+            emptyList(),
+            now,
+            WeightUnit.KG,
+            topicOpen = false,
+            zone = zone,
+        )
+
+        assertEquals(CoachExpression.ENCOURAGING, model.presence.expression)
+        assertEquals(1, model.context.workingSetsThisSession)
+        assertEquals(listOf(dayA.id), model.programs.map { it.id })
+        assertTrue(model.topics.any { it.id == "consistency" })
+    }
+
+    @Test
+    fun `a session finished today counts as work logged`() {
+        val dayA = routine("routine-a", "Full body A")
+        val model = ScreenModels.coach(
+            state(
+                listOf(dayA),
+                sessions = listOf(completedSession(now - 60 * 60_000L, dayA.id, dayA.name)),
+            ),
+            ExerciseLibrary,
+            emptyList(),
+            now,
+            WeightUnit.KG,
+            topicOpen = false,
+            zone = zone,
+        )
+
+        assertEquals(CoachExpression.ENCOURAGING, model.presence.expression)
+        assertEquals(1, model.context.sessionsCompletedToday)
+        assertEquals("Work logged", model.presence.headline)
+    }
+
+    @Test
+    fun `reading a topic switches the portrait to explaining`() {
+        val model = ScreenModels.coach(
+            state(emptyList()),
+            ExerciseLibrary,
+            emptyList(),
+            now,
+            WeightUnit.KG,
+            topicOpen = true,
+            zone = zone,
+        )
+
+        assertEquals(CoachExpression.EXPLAINING, model.presence.expression)
+        assertEquals("David Laid, explaining", model.presence.photoDescription)
+    }
+
+    @Test
+    fun `sleep context is only claimed when the caller actually passes nights`() {
+        val withNights = ScreenModels.coach(
+            state(emptyList()),
+            ExerciseLibrary,
+            listOf(sleepNight("n1", 420), sleepNight("n2", 390)),
+            now,
+            WeightUnit.KG,
+            topicOpen = false,
+            zone = zone,
+        )
+        assertEquals(2, withNights.context.sleepNightsAvailable)
+        assertTrue(withNights.topics.any { it.id == "recovery" })
+
+        val optedOut = ScreenModels.coach(
+            state(emptyList()),
+            ExerciseLibrary,
+            emptyList(),
+            now,
+            WeightUnit.KG,
+            topicOpen = false,
+            zone = zone,
+        )
+        assertEquals(0, optedOut.context.sleepNightsAvailable)
+        assertTrue(optedOut.topics.none { it.id == "recovery" })
+    }
+
+    @Test
+    fun `an unknown coach id falls back to the ambassador rather than a blank page`() {
+        val model = ScreenModels.coach(
+            state(emptyList()),
+            ExerciseLibrary,
+            emptyList(),
+            now,
+            WeightUnit.KG,
+            topicOpen = false,
+            coachId = "nobody",
+            zone = zone,
+        )
+
+        assertEquals("david-laid", model.coach.id)
+        assertTrue(model.coach.pendingFacts.isNotEmpty())
     }
 }

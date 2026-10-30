@@ -64,6 +64,7 @@ fun HomeScreen(
     onOpenLibrary: () -> Unit,
     onBuildPlan: () -> Unit,
     onOpenSchedule: () -> Unit,
+    onOpenCoaches: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val unit = state.settings.weightUnit
@@ -93,10 +94,15 @@ fun HomeScreen(
             title = "Cadence",
             subtitle = TimeRanges.relativeDay(now, now),
             actions = listOf(
+                CadenceIcon.Coach to onOpenCoaches,
                 CadenceIcon.Sleep to onOpenSleep,
                 CadenceIcon.Settings to onOpenSettings,
             ),
-            actionDescriptions = listOf("Sleep and recovery", "Settings and privacy"),
+            actionDescriptions = listOf(
+                "Coaches and guidance",
+                "Sleep and recovery",
+                "Settings and privacy",
+            ),
         )
 
         Column(
