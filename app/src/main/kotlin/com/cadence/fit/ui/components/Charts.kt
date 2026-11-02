@@ -1,7 +1,5 @@
 package com.cadence.fit.ui.components
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -16,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -50,6 +47,7 @@ fun BarChart(
     val muted = MaterialTheme.colorScheme.surfaceVariant
     val outline = MaterialTheme.colorScheme.outlineVariant
     val highlight = CadenceTheme.tones.heatHigh
+    val axisLabels = thinnedLabels(labels)
 
     Column(modifier.fillMaxWidth()) {
         Canvas(
@@ -98,20 +96,16 @@ fun BarChart(
         }
         Spacer(Modifier.size(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            thinnedLabels(labels).forEachIndexed { index, label ->
+            axisLabels.forEachIndexed { index, label ->
                 Text(
                     label,
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (index == 0) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
                     textAlign = when {
                         labels.size <= 4 -> TextAlign.Center
                         index == 0 -> TextAlign.Start
-                        index == thinnedLabels(labels).lastIndex -> TextAlign.End
+                        index == axisLabels.lastIndex -> TextAlign.End
                         else -> TextAlign.Center
                     },
                     maxLines = 1,
@@ -161,11 +155,6 @@ fun LineChart(
         return
     }
 
-    val animatedProgress by animateFloatAsState(
-        targetValue = 1f,
-        animationSpec = tween(durationMillis = 550),
-        label = "lineChartProgress",
-    )
     val minValue = values.min()
     val maxValue = values.max()
     val span = (maxValue - minValue).takeIf { it > 0.01f } ?: 1f

@@ -46,7 +46,8 @@ import com.cadence.fit.ui.components.StatTile
 fun BodyMapScreen(viewModel: CadenceViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val unit = state.settings.weightUnit
-    val now = viewModel.nowMs()
+    val today = viewModel.today()
+    val now = remember(state, today) { viewModel.nowMs() }
     var days by remember { mutableStateOf(14) }
     var selected by remember { mutableStateOf<MuscleGroup?>(null) }
 

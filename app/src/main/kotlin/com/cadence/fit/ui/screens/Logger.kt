@@ -5,6 +5,7 @@ import android.media.ToneGenerator
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -100,6 +101,9 @@ fun LoggerScreen(
     val session = state.sessions.firstOrNull { it.id == sessionId }
     val settings = state.settings
     val unit = settings.weightUnit
+    // Previous performance is relative to when this workout was opened; the
+    // timestamp for newly logged sets is still read fresh at save time.
+    val sessionOpenedAt = remember { viewModel.nowMs() }
 
     val view = LocalView.current
     DisposableEffect(settings.keepScreenOnDuringWorkout) {
@@ -256,6 +260,8 @@ fun LoggerScreen(
                 ExerciseLogger(
                     viewModel = viewModel,
                     session = session,
+                    sessions = state.sessions,
+                    previousNowMs = sessionOpenedAt,
                     slot = current,
                     unit = unit,
                     onUnitChange = { selected ->
@@ -461,6 +467,8 @@ private fun RestTimerBar(
 private fun ExerciseLogger(
     viewModel: CadenceViewModel,
     session: WorkoutSession,
+    sessions: List<WorkoutSession>,
+    previousNowMs: Long,
     slot: LogSlot,
     unit: WeightUnit,
     onUnitChange: (WeightUnit) -> Unit,
@@ -472,10 +480,9 @@ private fun ExerciseLogger(
     onRemoveExtra: () -> Unit,
     isExtra: Boolean,
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
     val now = viewModel.nowMs()
-    val previous = remember(session.id, slot.exerciseId, now) {
-        WorkoutLogger.previousPerformance(state.sessions, slot.exerciseId, now)
+    val previous = remember(session.id, slot.exerciseId, previousNowMs) {
+        WorkoutLogger.previousPerformance(sessions, slot.exerciseId, previousNowMs)
     }
 
     var isWarmup by remember(slot.exerciseId) { mutableStateOf(false) }
@@ -884,28 +891,39 @@ private fun NumeralRow(
     onMinus: () -> Unit,
     onPlus: () -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(96.dp),
-        )
-        StepButton(
-            icon = CadenceIcon.Minus,
-            contentDescription = "Decrease $label",
-            onClick = onMinus,
-            size = 60.dp,
-        )
-        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-            Text(value, style = MaterialTheme.typography.displaySmall)
+    BoxWithConstraints {
+        val compact = maxWidth < 340.dp
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.width(if (compact) 68.dp else 96.dp),
+            )
+            StepButton(
+                icon = CadenceIcon.Minus,
+                contentDescription = "Decrease $label",
+                onClick = onMinus,
+                size = 60.dp,
+            )
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                Text(
+                    value,
+                    style = if (compact) {
+                        MaterialTheme.typography.headlineMedium
+                    } else {
+                        MaterialTheme.typography.displaySmall
+                    },
+                    maxLines = 1,
+                )
+            }
+            StepButton(
+                icon = CadenceIcon.Plus,
+                contentDescription = "Increase $label",
+                onClick = onPlus,
+                size = 60.dp,
+            )
         }
-        StepButton(
-            icon = CadenceIcon.Plus,
-            contentDescription = "Increase $label",
-            onClick = onPlus,
-            size = 60.dp,
-        )
     }
 }
 

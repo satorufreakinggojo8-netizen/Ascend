@@ -55,7 +55,8 @@ fun ProgressScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val unit = state.settings.weightUnit
-    val now = viewModel.nowMs()
+    val today = viewModel.today()
+    val now = remember(state, today) { viewModel.nowMs() }
     var window by remember { mutableStateOf(ChartWindow.default) }
     var selectedWeek by remember { mutableStateOf<Int?>(null) }
     var selectedConsistency by remember { mutableStateOf<Int?>(null) }

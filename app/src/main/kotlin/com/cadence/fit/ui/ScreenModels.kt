@@ -62,7 +62,6 @@ data class HomeModel(
     val summary: ProgressSummary,
     val lastCompleted: WorkoutSession?,
     val activeSession: WorkoutSession?,
-    val muscleVolume: Map<MuscleGroup, Double>,
     val volumeTrend: List<Float>,
     val todaySlot: ScheduledWorkout?,
     val weekDays: List<HomeDay>,
@@ -147,7 +146,6 @@ object ScreenModels {
             targetSessionsPerWeek = state.profile.daysPerWeek,
             zone = zone,
         )
-        val window = muscleWindow(state, catalog, days = 14, nowMs = nowMs)
         val today = com.cadence.fit.domain.time.TimeRanges.toLocalDate(nowMs, zone)
         val weekStart = SchedulePlanner.weekStart(today)
         val weekSlots = state.schedule.filter { !it.date.isBefore(weekStart) && !it.date.isAfter(weekStart.plusDays(6)) }
@@ -232,7 +230,6 @@ object ScreenModels {
             summary = summary,
             lastCompleted = lastCompleted,
             activeSession = active,
-            muscleVolume = window.volumeByMuscle,
             volumeTrend = ChartData.volumeByWeek(state.sessions, com.cadence.fit.domain.insight.ChartWindow.TWELVE_WEEKS, nowMs, zone)
                 .map { it.volumeKg.toFloat() },
             todaySlot = todaySlot,

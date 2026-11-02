@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -326,13 +327,25 @@ fun StepButton(
     }
     Box(
         modifier = modifier
-            .size(size)
+            .minimumInteractiveComponentSize()
             .clip(CircleShape)
-            .background(background)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        CadenceIcon(icon, size = size * 0.42f, tint = foreground, contentDescription = contentDescription)
+        Box(
+            Modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(background),
+            contentAlignment = Alignment.Center,
+        ) {
+            CadenceIcon(
+                icon,
+                size = size * 0.42f,
+                tint = foreground,
+                contentDescription = contentDescription,
+            )
+        }
     }
 }
 
@@ -358,16 +371,24 @@ fun FilterChip(
     }
     Box(
         modifier = modifier
+            .minimumInteractiveComponentSize()
             .clip(CircleShape)
-            .background(background)
-            .border(
-                BorderStroke(1.dp, if (selected) background else MaterialTheme.colorScheme.outline),
-                CircleShape,
-            )
             .selectable(selected = selected, role = Role.Button, onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 9.dp),
+            .padding(vertical = 4.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = foreground)
+        Box(
+            Modifier
+                .clip(CircleShape)
+                .background(background)
+                .border(
+                    BorderStroke(1.dp, if (selected) background else MaterialTheme.colorScheme.outline),
+                    CircleShape,
+                )
+                .padding(horizontal = 14.dp, vertical = 9.dp),
+        ) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = foreground)
+        }
     }
 }
 

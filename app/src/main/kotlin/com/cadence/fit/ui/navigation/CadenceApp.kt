@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -34,7 +36,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.cadence.fit.ui.CadenceViewModel
 import com.cadence.fit.ui.components.CadenceIcon
-import com.cadence.fit.ui.components.CadenceProgressBar
 import com.cadence.fit.ui.screens.BodyMapScreen
 import com.cadence.fit.ui.screens.CoachProfileScreen
 import com.cadence.fit.ui.screens.CoachesScreen
@@ -55,6 +56,8 @@ import com.cadence.fit.ui.screens.ProfileScreen
 import com.cadence.fit.ui.screens.SettingsScreen
 import com.cadence.fit.ui.screens.SleepScreen
 import com.cadence.fit.ui.screens.SplitsScreen
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 object Routes {
     const val ONBOARDING = "onboarding"
@@ -108,7 +111,12 @@ private val bottomDestinations = listOf(
 
 @Composable
 fun CadenceApp(viewModel: CadenceViewModel) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    // Only the loading flag is read here. Collecting the whole state at the root
+    // re-composed every screen on every logged set; each screen already reads
+    // exactly the state it needs.
+    val loaded by remember(viewModel) {
+        viewModel.state.map { it.loaded }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = viewModel.state.value.loaded)
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -119,7 +127,7 @@ fun CadenceApp(viewModel: CadenceViewModel) {
         viewModel.dismissMessage(message.id)
     }
 
-    if (!state.loaded) {
+    if (!loaded) {
         LoadingScreen()
         return
     }
@@ -129,16 +137,32 @@ fun CadenceApp(viewModel: CadenceViewModel) {
     val currentRoute = backStackEntry?.destination?.route?.substringBefore('?')
     val showsBottomBar = bottomDestinations.any { it.route == currentRoute }
 
-    val startDestination = remember { if (state.profile.onboardingComplete) Routes.HOME else Routes.ONBOARDING }
+    val startDestination = remember {
+        if (viewModel.state.value.profile.onboardingComplete) Routes.HOME else Routes.ONBOARDING
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            if (showsBottomBar) {
+                CadenceBottomBar(
+                    currentRoute = currentRoute,
+                    onNavigate = { route ->
+                        navController.navigate(route) {
+                            popUpTo(Routes.HOME) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
+            }
+        },
     ) { innerPadding ->
         Box(
             Modifier
                 .fillMaxSize()
-                .padding(top = innerPadding.calculateTopPadding()),
+                .padding(innerPadding),
         ) {
             NavHost(
                 navController = navController,
@@ -147,8 +171,8 @@ fun CadenceApp(viewModel: CadenceViewModel) {
             ) {
                 composable(Routes.ONBOARDING) {
                     OnboardingScreen(
-                        initialProfile = state.profile,
-                        initialUnit = state.settings.weightUnit,
+                        initialProfile = viewModel.state.value.profile,
+                        initialUnit = viewModel.state.value.settings.weightUnit,
                         onComplete = { profile, unit ->
                             viewModel.finishOnboarding(profile, unit)
                             navController.navigate(Routes.HOME) {
@@ -373,19 +397,6 @@ fun CadenceApp(viewModel: CadenceViewModel) {
                 }
             }
 
-            if (showsBottomBar) {
-                CadenceBottomBar(
-                    currentRoute = currentRoute,
-                    onNavigate = { route ->
-                        navController.navigate(route) {
-                            popUpTo(Routes.HOME) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                )
-            }
         }
     }
 }
@@ -408,6 +419,7 @@ private fun CadenceBottomBar(
         Row(
             Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(horizontal = 4.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
@@ -458,9 +470,16 @@ private fun LoadingScreen() {
                 tint = MaterialTheme.colorScheme.primary,
             )
             Spacer(Modifier.size(18.dp))
-            CadenceProgressBar(
-                fraction = 0.4f,
-                modifier = Modifier.fillMaxWidth(0.35f),
+            CircularProgressIndicator(
+                modifier = Modifier.size(22.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.size(14.dp))
+            Text(
+                "Loading your training",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

@@ -25,6 +25,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cadence.fit.domain.insight.RecoveryContext
@@ -68,7 +70,10 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val unit = state.settings.weightUnit
-    val now = viewModel.nowMs()
+    // Keyed to the data and to today's date, not to a millisecond timestamp that
+    // changed on every recomposition.
+    val today = viewModel.today()
+    val now = remember(state, today) { viewModel.nowMs() }
     val model = remember(state, now) { ScreenModels.home(state, viewModel.catalog, now) }
 
     val sleepStatus by viewModel.sleepStatus.collectAsStateWithLifecycle()
@@ -130,7 +135,18 @@ fun HomeScreen(
 
             WeekStripCard(model, onOpenSchedule)
 
-            ProgressSummaryCard(model, unit, onOpenPlan)
+            if (model.summary.totalSessions == 0) {
+                EmptyState(
+                    title = "Your first session starts the story",
+                    message = "Volume, records and the muscle map fill in from what you log. " +
+                        "Nothing here is graded.",
+                    icon = CadenceIcon.TrendUp,
+                    actionLabel = "Browse exercises",
+                    onAction = onOpenLibrary,
+                )
+            } else {
+                ProgressSummaryCard(model, unit, onOpenPlan)
+            }
 
             if (recovery != null) {
                 RecoveryCard(recovery, onOpenSleep)
@@ -166,17 +182,6 @@ fun HomeScreen(
                         )
                     }
                 }
-            }
-
-            if (model.summary.totalSessions == 0) {
-                EmptyState(
-                    title = "No sessions yet",
-                    message = "Your first logged workout will start building your history, " +
-                        "records and charts.",
-                    icon = CadenceIcon.TrendUp,
-                    actionLabel = "Browse exercises",
-                    onAction = onOpenLibrary,
-                )
             }
 
             Spacer(Modifier.size(8.dp))
@@ -257,7 +262,25 @@ private fun WeekStripCard(model: HomeModel, onOpenSchedule: () -> Unit) {
                     null -> MaterialTheme.colorScheme.surfaceVariant
                 }
                 Column(
-                    Modifier.weight(1f),
+                    Modifier
+                        .weight(1f)
+                        .semantics(mergeDescendants = true) {
+                            val statusLabel = when (day.status) {
+                                ScheduleStatus.COMPLETED -> "completed"
+                                ScheduleStatus.PLANNED -> "planned"
+                                ScheduleStatus.SKIPPED -> "skipped"
+                                null -> "nothing planned"
+                            }
+                            contentDescription = buildString {
+                                append(day.date.dayOfWeek.name.lowercase()
+                                    .replaceFirstChar { it.uppercase() })
+                                append(" ")
+                                append(day.dayOfMonth)
+                                append(", ")
+                                append(statusLabel)
+                                if (day.isToday) append(", today")
+                            }
+                        },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
@@ -292,14 +315,6 @@ private fun WeekStripCard(model: HomeModel, onOpenSchedule: () -> Unit) {
                     )
                 }
             }
-        }
-        if (model.weekTally.isEmpty) {
-            Spacer(Modifier.size(8.dp))
-            Text(
-                "No planned days yet. Open the week to lay out your sessions.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

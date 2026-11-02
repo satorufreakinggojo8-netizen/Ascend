@@ -63,7 +63,8 @@ fun SleepScreen(viewModel: CadenceViewModel, onBack: () -> Unit) {
     val status by viewModel.sleepStatus.collectAsStateWithLifecycle()
     val sessions by viewModel.sleepSessions.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val now = viewModel.nowMs()
+    val today = viewModel.today()
+    val now = remember(status, sessions, today) { viewModel.nowMs() }
 
     var showAboutConnection by remember { mutableStateOf(false) }
 

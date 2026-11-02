@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,9 +15,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -247,35 +248,36 @@ fun LibraryScreen(
 
         Spacer(Modifier.size(12.dp))
 
-        Column(
-            Modifier
+        LazyColumn(
+            modifier = Modifier
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(bottom = 16.dp),
         ) {
             if (results.isEmpty()) {
-                EmptyState(
-                    title = "Nothing matches",
-                    message = if (onlyAvailable) {
-                        "Try turning off the equipment filter, or clear the search."
-                    } else {
-                        "Try a different muscle group or search term."
-                    },
-                    icon = CadenceIcon.Search,
-                    actionLabel = "Clear filters",
-                    onAction = {
-                        query = ""
-                        muscleGroups = emptySet()
-                        onlyAvailable = false
-                    },
-                )
+                item {
+                    EmptyState(
+                        title = "Nothing matches",
+                        message = if (onlyAvailable) {
+                            "Try turning off the equipment filter, or clear the search."
+                        } else {
+                            "Try a different muscle group or search term."
+                        },
+                        icon = CadenceIcon.Search,
+                        actionLabel = "Clear filters",
+                        onAction = {
+                            query = ""
+                            muscleGroups = emptySet()
+                            onlyAvailable = false
+                        },
+                    )
+                }
             } else {
-                results.forEach { exercise ->
+                items(results, key = { it.id }) { exercise ->
                     ExerciseRow(exercise = exercise, onClick = { onOpenExercise(exercise.id) })
                 }
             }
-            Spacer(Modifier.size(16.dp))
         }
     }
 }

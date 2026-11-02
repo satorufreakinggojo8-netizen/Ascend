@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,7 +44,7 @@ fun CadenceTopBar(
         if (onBack != null) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .minimumInteractiveComponentSize()
                     .clip(CircleShape)
                     .clickable(role = Role.Button, onClickLabel = "Go back", onClick = onBack),
                 contentAlignment = Alignment.Center,
@@ -76,7 +77,7 @@ fun CadenceTopBar(
                 val description = actionDescriptions.getOrNull(index)
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .minimumInteractiveComponentSize()
                         .clip(CircleShape)
                         .clickable(role = Role.Button, onClick = onClick),
                     contentAlignment = Alignment.Center,

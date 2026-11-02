@@ -78,7 +78,7 @@ fun CoachesScreen(
                 slot = coach.photoFor(CoachExpression.IDLE),
                 description = "${coach.name}, idle portrait",
                 corner = 26.dp,
-                modifier = Modifier.fillMaxWidth(0.82f),
+                modifier = Modifier.fillMaxWidth(0.62f),
             )
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
