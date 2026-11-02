@@ -60,7 +60,7 @@ fun HomeScreen(
     viewModel: CadenceViewModel,
     onStartWorkout: (String?) -> Unit,
     onOpenSession: (String) -> Unit,
-    onOpenPlan: () -> Unit,
+    onOpenProgress: () -> Unit,
     onOpenSleep: () -> Unit,
     onOpenLibrary: () -> Unit,
     onBuildPlan: () -> Unit,
@@ -145,7 +145,7 @@ fun HomeScreen(
                     onAction = onOpenLibrary,
                 )
             } else {
-                ProgressSummaryCard(model, unit, onOpenPlan)
+                ProgressSummaryCard(model, unit, onOpenProgress)
             }
 
             if (recovery != null) {
@@ -323,7 +323,7 @@ private fun WeekStripCard(model: HomeModel, onOpenSchedule: () -> Unit) {
 private fun ProgressSummaryCard(
     model: HomeModel,
     unit: com.cadence.fit.domain.units.WeightUnit,
-    onOpenPlan: () -> Unit,
+    onOpenProgress: () -> Unit,
 ) {
     val summary = model.summary
     CadenceCard {
@@ -354,7 +354,7 @@ private fun ProgressSummaryCard(
             Sparkline(values = model.volumeTrend)
         }
         Spacer(Modifier.size(14.dp))
-        SecondaryButton(text = "Open your plan", onClick = onOpenPlan)
+        SecondaryButton(text = "View progress", onClick = onOpenProgress)
     }
 }
 

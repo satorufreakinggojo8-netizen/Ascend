@@ -189,7 +189,11 @@ fun CadenceApp(viewModel: CadenceViewModel) {
                             viewModel.startSession(routineId)
                         },
                         onOpenSession = { sessionId -> navController.navigate(Routes.logger(sessionId)) },
-                        onOpenPlan = { navController.navigate(Routes.PLAN) },
+                        onOpenProgress = {
+                            navController.navigate(Routes.PROGRESS) {
+                                launchSingleTop = true
+                            }
+                        },
                         onOpenSleep = { navController.navigate(Routes.SLEEP) },
                         onOpenLibrary = { navController.navigate(Routes.LIBRARY) },
                         onBuildPlan = { navController.navigate(Routes.ONBOARDING) },

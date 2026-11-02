@@ -43,6 +43,7 @@ import com.cadence.fit.ui.components.SecondaryButton
 import com.cadence.fit.ui.components.SectionHeader
 import com.cadence.fit.ui.components.StatTile
 import com.cadence.fit.ui.theme.CadenceTheme
+import kotlin.math.roundToInt
 
 /** Charts, records and level context. Filters change the window for every chart. */
 @Composable
@@ -116,14 +117,35 @@ fun ProgressScreen(
                         },
                     )
                     Spacer(Modifier.size(14.dp))
+                    val bestWeek = model.volumeByWeek.indices
+                        .maxByOrNull { model.volumeByWeek[it] }
                     BarChart(
                         values = model.volumeByWeek,
                         labels = model.weekLabels,
                         highlightIndex = selectedWeek,
+                        description = "Weekly training volume for ${window.displayName}. " +
+                            (bestWeek?.takeIf { model.volumeByWeek[it] > 0f }?.let { index ->
+                                "Best week is ${model.weekLabels[index]} with " +
+                                    Weights.formatVolume(model.volumeByWeek[index].toDouble(), unit) + "."
+                            } ?: "No volume logged yet."),
                         onSelect = { index ->
                             selectedWeek = if (selectedWeek == index) null else index
                         },
                     )
+                    if (bestWeek != null && model.volumeByWeek[bestWeek] > 0f) {
+                        Spacer(Modifier.size(8.dp))
+                        Text(
+                            "Best week ${model.weekLabels[bestWeek]}: " +
+                                Weights.formatVolume(model.volumeByWeek[bestWeek].toDouble(), unit) +
+                                " · Weekly average: " +
+                                Weights.formatVolume(
+                                    model.volumeByWeek.ifEmpty { listOf(0f) }.average(),
+                                    unit,
+                                ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Spacer(Modifier.size(10.dp))
                     val index = selectedWeek
                     if (index != null && index in model.volumeByWeek.indices) {
@@ -152,14 +174,27 @@ fun ProgressScreen(
                         subtitle = "Sessions per week against your ${model.targetSessionsPerWeek}-day target",
                     )
                     Spacer(Modifier.size(14.dp))
+                    val averageSessions = model.consistencyByWeek
+                        .ifEmpty { listOf(0f) }
+                        .average()
                     LineChart(
                         values = model.consistencyByWeek,
                         labels = model.weekLabels,
                         targetLine = model.targetSessionsPerWeek.toFloat(),
                         highlightIndex = selectedConsistency,
+                        description = "Sessions completed each week for ${window.displayName}, " +
+                            "against a target of ${model.targetSessionsPerWeek}. " +
+                            "Average is ${Weights.formatAmount(averageSessions)} sessions a week.",
                         onSelect = { index ->
                             selectedConsistency = if (selectedConsistency == index) null else index
                         },
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    Text(
+                        "Averaging ${Weights.formatAmount(averageSessions)} of " +
+                            "${model.targetSessionsPerWeek} planned sessions a week.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.size(10.dp))
                     val index = selectedConsistency
@@ -205,9 +240,11 @@ fun ProgressScreen(
                     }
                     model.summary.volumeChangeFraction?.let { change ->
                         Spacer(Modifier.size(12.dp))
-                        val percent = (change * 100).toInt()
+                        val percent = (change * 100).roundToInt()
                         Text(
-                            if (change >= 0) {
+                            if (percent == 0) {
+                                "Volume is in line with last week."
+                            } else if (change > 0) {
                                 "Volume is up about $percent% on last week."
                             } else {
                                 "Volume is down about ${-percent}% on last week. " +

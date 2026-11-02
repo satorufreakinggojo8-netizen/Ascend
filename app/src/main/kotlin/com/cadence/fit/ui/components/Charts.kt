@@ -23,6 +23,8 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -40,6 +42,7 @@ fun BarChart(
     accent: Color = MaterialTheme.colorScheme.primary,
     highlightIndex: Int? = null,
     height: Dp = 140.dp,
+    description: String? = null,
     onSelect: ((Int) -> Unit)? = null,
 ) {
     if (values.isEmpty()) return
@@ -54,6 +57,13 @@ fun BarChart(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(height)
+                .then(
+                    if (description != null) {
+                        Modifier.semantics { contentDescription = description }
+                    } else {
+                        Modifier
+                    },
+                )
                 .then(
                     if (onSelect != null) {
                         Modifier.pointerInput(values.size) {
@@ -137,6 +147,7 @@ fun LineChart(
     highlightIndex: Int? = null,
     height: Dp = 160.dp,
     targetLine: Float? = null,
+    description: String? = null,
     onSelect: ((Int) -> Unit)? = null,
 ) {
     if (values.size < 2) {
@@ -155,9 +166,11 @@ fun LineChart(
         return
     }
 
-    val minValue = values.min()
-    val maxValue = values.max()
-    val span = (maxValue - minValue).takeIf { it > 0.01f } ?: 1f
+    // A zero baseline keeps small week-to-week changes from looking dramatic, and
+    // including the target means the dashed line is always inside the plot.
+    val minValue = 0f
+    val maxValue = maxOf(values.max(), targetLine ?: 0f, 1f)
+    val span = (maxValue - minValue).coerceAtLeast(0.01f)
     val grid = MaterialTheme.colorScheme.outlineVariant
     val pointColor = CadenceTheme.tones.heatHigh
     // Read theme colours here: the Canvas draw lambda is not @Composable.
@@ -169,6 +182,13 @@ fun LineChart(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(height)
+                .then(
+                    if (description != null) {
+                        Modifier.semantics { contentDescription = description }
+                    } else {
+                        Modifier
+                    },
+                )
                 .then(
                     if (onSelect != null) {
                         Modifier.pointerInput(values.size) {

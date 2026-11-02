@@ -28,6 +28,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,12 +75,15 @@ fun LibraryScreen(
 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    // The controller is long-lived; read the latest query instead of the value
+    // captured when the microphone controller was first created.
+    val currentQuery by rememberUpdatedState(query)
     val voiceController = remember(context) {
         VoiceInputController(
             context = context,
             onReady = { voiceState = VoiceSearchState(phase = com.cadence.fit.ui.voice.VoiceSearchPhase.LISTENING) },
             onFinished = { text ->
-                val next = VoiceSearchPolicy.onResult(text, query)
+                val next = VoiceSearchPolicy.onResult(text, currentQuery)
                 voiceState = next
                 if (next.query.isNotEmpty()) query = next.query
             },
@@ -162,7 +166,7 @@ fun LibraryScreen(
                 trailingIcon = {
                     IconButton(
                         onClick = onVoiceClick,
-                        modifier = Modifier.size(44.dp),
+                        modifier = Modifier.size(48.dp),
                     ) {
                         CadenceIcon(
                             if (voiceState.isListening) CadenceIcon.Close else CadenceIcon.Mic,
@@ -193,10 +197,10 @@ fun LibraryScreen(
                 )
             }
             Spacer(Modifier.size(10.dp))
-            Row(
-                Modifier.fillMaxWidth(),
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 FilterChip(
                     label = if (showFilters) "Hide filters" else "Filters",
@@ -208,7 +212,6 @@ fun LibraryScreen(
                     selected = onlyAvailable,
                     onClick = { onlyAvailable = !onlyAvailable },
                 )
-                Spacer(Modifier.weight(1f))
                 if (query.isNotBlank() || muscleGroups.isNotEmpty()) {
                     FilterChip(
                         label = "Clear",
