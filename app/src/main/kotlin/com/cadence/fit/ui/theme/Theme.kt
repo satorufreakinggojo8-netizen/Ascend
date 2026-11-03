@@ -104,7 +104,33 @@ private val DarkTones = CadenceTones(
     rest = Color(0xFFA6C9DA),
 )
 
+/**
+ * Signature gradients. The hero is deliberately deeper than the app's primary
+ * colour so content on top reads as a lit stage rather than another card.
+ */
+data class CadenceGradients(
+    val hero: List<Color>,
+    val heroGlow: Color,
+    val heroContent: Color,
+    val primaryButton: List<Color>,
+)
+
+private val LightGradients = CadenceGradients(
+    hero = listOf(Color(0xFF092E27), Color(0xFF125244), Color(0xFF1E6F5C)),
+    heroGlow = Color(0xFFF0BE86),
+    heroContent = Color(0xFFF8F5EA),
+    primaryButton = listOf(Color(0xFF2A7161), Color(0xFF17483E)),
+)
+
+private val DarkGradients = CadenceGradients(
+    hero = listOf(Color(0xFF1B4F42), Color(0xFF10362D), Color(0xFF091F1A)),
+    heroGlow = Color(0xFFE8B37A),
+    heroContent = Color(0xFFF3F2E7),
+    primaryButton = listOf(Color(0xFF9BDAC8), Color(0xFF64B8A4)),
+)
+
 val LocalCadenceTones = staticCompositionLocalOf { LightTones }
+val LocalCadenceGradients = staticCompositionLocalOf { LightGradients }
 
 private val CadenceTypography = Typography(
     displaySmall = TextStyle(
@@ -177,7 +203,11 @@ fun CadenceTheme(
     content: @Composable () -> Unit,
 ) {
     val tones = if (darkTheme) DarkTones else LightTones
-    CompositionLocalProvider(LocalCadenceTones provides tones) {
+    val gradients = if (darkTheme) DarkGradients else LightGradients
+    CompositionLocalProvider(
+        LocalCadenceTones provides tones,
+        LocalCadenceGradients provides gradients,
+    ) {
         MaterialTheme(
             colorScheme = if (darkTheme) DarkColors else LightColors,
             typography = CadenceTypography,
@@ -191,4 +221,7 @@ fun CadenceTheme(
 object CadenceTheme {
     val tones: CadenceTones
         @Composable get() = LocalCadenceTones.current
+
+    val gradients: CadenceGradients
+        @Composable get() = LocalCadenceGradients.current
 }

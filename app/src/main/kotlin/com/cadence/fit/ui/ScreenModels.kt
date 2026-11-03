@@ -29,6 +29,8 @@ import com.cadence.fit.domain.progression.PlateauInsight
 import com.cadence.fit.domain.progression.ProgressionEngine
 import com.cadence.fit.domain.progression.ProgressionRecommendation
 import com.cadence.fit.domain.progression.SuggestionKind
+import com.cadence.fit.domain.rank.StrengthRankAssessment
+import com.cadence.fit.domain.rank.StrengthRanker
 import com.cadence.fit.domain.time.TimeRanges
 import com.cadence.fit.domain.units.WeightUnit
 import com.cadence.fit.domain.workout.PreviousPerformance
@@ -60,6 +62,7 @@ data class HomeDay(
 data class HomeModel(
     val nextAction: NextAction,
     val summary: ProgressSummary,
+    val rank: StrengthRankAssessment,
     val lastCompleted: WorkoutSession?,
     val activeSession: WorkoutSession?,
     val volumeTrend: List<Float>,
@@ -75,10 +78,26 @@ data class MuscleWindow(
     val sessionsByMuscle: Map<MuscleGroup, Int>,
     val maxVolume: Double,
     val sessionsCounted: Int,
+    val workingSetsCounted: Int = 0,
+    val setsByMuscle: Map<MuscleGroup, Int> = emptyMap(),
+    val bestLiftByMuscle: Map<MuscleGroup, MuscleLift> = emptyMap(),
 ) {
     val untrainedGroups: List<MuscleGroup>
         get() = MuscleGroup.bodyMapGroups.filter { (volumeByMuscle[it] ?: 0.0) <= 0.0 }
+
+    val trainedGroups: List<MuscleGroup>
+        get() = MuscleGroup.bodyMapGroups.filter { (volumeByMuscle[it] ?: 0.0) > 0.0 }
 }
+
+/** The strongest estimated lift that lists [muscle] as a primary mover. */
+data class MuscleLift(
+    val exerciseId: String,
+    val exerciseName: String,
+    val weightKg: Double,
+    val reps: Int,
+    val estimatedOneRepMaxKg: Double,
+    val achievedAtMs: Long,
+)
 
 data class ExerciseDetailModel(
     val exercise: Exercise,
@@ -92,6 +111,7 @@ data class ExerciseDetailModel(
 
 data class ProgressModel(
     val summary: ProgressSummary,
+    val rank: StrengthRankAssessment,
     val volumeByWeek: List<Float>,
     val consistencyByWeek: List<Float>,
     val weekLabels: List<String>,
@@ -228,6 +248,11 @@ object ScreenModels {
         return HomeModel(
             nextAction = nextAction,
             summary = summary,
+            rank = StrengthRanker.assess(
+                state.completedSessions,
+                catalog,
+                state.bodyProfile.latestWeightKg,
+            ),
             lastCompleted = lastCompleted,
             activeSession = active,
             volumeTrend = ChartData.volumeByWeek(state.sessions, com.cadence.fit.domain.insight.ChartWindow.TWELVE_WEEKS, nowMs, zone)
@@ -259,12 +284,41 @@ object ScreenModels {
     ): MuscleWindow {
         val sessions = TimeRanges.sessionsWithin(state.sessions, days, nowMs)
         val volume = WorkoutMath.volumeByMuscle(sessions, catalog)
+        val setsByMuscle = mutableMapOf<MuscleGroup, Int>()
+        val bestLifts = mutableMapOf<MuscleGroup, MuscleLift>()
+        var workingSets = 0
+        sessions.forEach { session ->
+            session.workingSets.forEach { set ->
+                workingSets += 1
+                val exercise = catalog.byId(set.exerciseId) ?: return@forEach
+                exercise.primaryMuscles
+                    .filter { it.appearsOnBodyMap }
+                    .distinct()
+                    .forEach { muscle ->
+                        setsByMuscle[muscle] = (setsByMuscle[muscle] ?: 0) + 1
+                        val estimate = set.estimatedOneRepMaxKg
+                        if (estimate > (bestLifts[muscle]?.estimatedOneRepMaxKg ?: 0.0)) {
+                            bestLifts[muscle] = MuscleLift(
+                                exerciseId = set.exerciseId,
+                                exerciseName = exercise.name,
+                                weightKg = set.weightKg,
+                                reps = set.reps,
+                                estimatedOneRepMaxKg = estimate,
+                                achievedAtMs = set.completedAtMs,
+                            )
+                        }
+                    }
+            }
+        }
         return MuscleWindow(
             days = days,
             volumeByMuscle = volume,
             sessionsByMuscle = WorkoutMath.sessionCountByMuscle(sessions, catalog),
             maxVolume = volume.values.maxOrNull() ?: 0.0,
             sessionsCounted = sessions.size,
+            workingSetsCounted = workingSets,
+            setsByMuscle = setsByMuscle,
+            bestLiftByMuscle = bestLifts,
         )
     }
 
@@ -417,6 +471,11 @@ object ScreenModels {
 
         return ProgressModel(
             summary = summary,
+            rank = StrengthRanker.assess(
+                state.completedSessions,
+                catalog,
+                state.bodyProfile.latestWeightKg,
+            ),
             volumeByWeek = volumeWeeks.map { it.volumeKg.toFloat() },
             consistencyByWeek = consistency.map { it.sessions.toFloat() },
             weekLabels = volumeWeeks.map { it.label },

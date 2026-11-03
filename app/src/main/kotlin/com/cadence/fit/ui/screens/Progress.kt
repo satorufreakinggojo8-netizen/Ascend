@@ -21,11 +21,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cadence.fit.domain.insight.ChartWindow
 import com.cadence.fit.domain.insight.LevelAssessment
 import com.cadence.fit.domain.math.PersonalRecordType
 import com.cadence.fit.domain.progression.PlateauInsight
+import com.cadence.fit.domain.rank.RankAnchor
+import com.cadence.fit.domain.rank.StrengthRank
+import com.cadence.fit.domain.rank.StrengthRankAssessment
 import com.cadence.fit.domain.units.Weights
 import com.cadence.fit.ui.CadenceViewModel
 import com.cadence.fit.ui.ScreenModels
@@ -35,13 +39,20 @@ import com.cadence.fit.ui.components.CadenceIcon
 import com.cadence.fit.ui.components.CadenceTopBar
 import com.cadence.fit.ui.components.EmptyState
 import com.cadence.fit.ui.components.FilterChip
+import com.cadence.fit.ui.components.HeroButton
+import com.cadence.fit.ui.components.HeroCard
+import com.cadence.fit.ui.components.HeroProgressBar
 import com.cadence.fit.ui.components.InfoNote
 import com.cadence.fit.ui.components.LineChart
+import com.cadence.fit.ui.components.RankCrest
+import com.cadence.fit.ui.components.RankPill
 import com.cadence.fit.ui.components.CadenceProgressBar
 import com.cadence.fit.ui.components.Badge
 import com.cadence.fit.ui.components.SecondaryButton
 import com.cadence.fit.ui.components.SectionHeader
 import com.cadence.fit.ui.components.StatTile
+import com.cadence.fit.ui.components.ThinDivider
+import com.cadence.fit.ui.art.muscleBand
 import com.cadence.fit.ui.theme.CadenceTheme
 import kotlin.math.roundToInt
 
@@ -53,6 +64,8 @@ fun ProgressScreen(
     onOpenHistory: () -> Unit,
     onOpenBodyMap: () -> Unit,
     onOpenWeekHistory: (Long) -> Unit,
+    onOpenProfile: () -> Unit,
+    onOpenLibrary: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val unit = state.settings.weightUnit
@@ -104,6 +117,13 @@ fun ProgressScreen(
                     icon = CadenceIcon.Progress,
                 )
             } else {
+                RankCard(
+                    assessment = model.rank,
+                    unit = unit,
+                    onOpenProfile = onOpenProfile,
+                    onOpenLibrary = onOpenLibrary,
+                )
+
                 CadenceCard {
                     SectionHeader(
                         title = "Training volume",
@@ -371,16 +391,28 @@ private fun MuscleBalanceCard(model: com.cadence.fit.ui.ProgressModel, onOpenBod
                     Modifier.padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        muscle.displayName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(0.34f),
-                    )
+                    Column(Modifier.weight(0.38f)) {
+                        Text(
+                            muscle.displayName,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            "${window.setsByMuscle[muscle] ?: 0} sets",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     CadenceProgressBar(
                         fraction = share.toFloat(),
                         modifier = Modifier.weight(0.5f),
                         height = 6.dp,
-                        color = CadenceTheme.tones.heatHigh,
+                        color = when (muscleBand(volume, window.maxVolume)) {
+                            1 -> CadenceTheme.tones.heatLow
+                            2 -> CadenceTheme.tones.heatMid
+                            3 -> CadenceTheme.tones.heatHigh
+                            4 -> CadenceTheme.tones.heatPeak
+                            else -> CadenceTheme.tones.heatEmpty
+                        },
                     )
                     Text(
                         "${(share * 100).toInt()}%",
@@ -436,7 +468,7 @@ private fun PlateauCard(insight: PlateauInsight) {
 private fun LevelCard(level: LevelAssessment, onHide: () -> Unit) {
     CadenceCard {
         SectionHeader(
-            title = "Progress level",
+            title = "Consistency level",
             subtitle = "Optional, and only about your own logged training",
         )
         Spacer(Modifier.size(12.dp))
@@ -469,5 +501,173 @@ private fun LevelCard(level: LevelAssessment, onHide: () -> Unit) {
         )
         Spacer(Modifier.size(12.dp))
         SecondaryButton(text = "Hide this", onClick = onHide)
+    }
+}
+
+/**
+ * Rank hero plus the four anchors that produced it. The rank is a benchmark
+ * against the user's own body weight, not a judgement or a competition class.
+ */
+@Composable
+private fun RankCard(
+    assessment: StrengthRankAssessment,
+    unit: com.cadence.fit.domain.units.WeightUnit,
+    onOpenProfile: () -> Unit,
+    onOpenLibrary: () -> Unit,
+) {
+    val gradients = CadenceTheme.gradients
+    val rank = assessment.rank
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        HeroCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RankCrest(rank = rank, size = 68.dp, onDark = true)
+                Spacer(Modifier.size(16.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "YOUR RANK",
+                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.6.sp),
+                        color = gradients.heroGlow,
+                    )
+                    Spacer(Modifier.size(2.dp))
+                    Text(
+                        rank?.displayName ?: "Unranked",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = gradients.heroContent,
+                    )
+                    Text(
+                        when {
+                            rank != null -> "${assessment.anchorCount} of " +
+                                "${assessment.totalAnchors} anchors · best e1RM vs bodyweight"
+                            assessment.bodyweightKg == null ->
+                                "Add bodyweight to compare your lifts"
+                            else ->
+                                "Log a barbell squat, bench, deadlift or overhead press"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = gradients.heroContent.copy(alpha = 0.72f),
+                    )
+                }
+            }
+            Spacer(Modifier.size(16.dp))
+            when {
+                rank != null -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Next: ${assessment.nextRank?.displayName ?: "Top of the ladder"}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = gradients.heroContent.copy(alpha = 0.72f),
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            if (assessment.nextRank == null) {
+                                "Max"
+                            } else {
+                                "${(assessment.progressToNext * 100).roundToInt()}%"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = gradients.heroGlow,
+                        )
+                    }
+                    Spacer(Modifier.size(6.dp))
+                    HeroProgressBar(assessment.progressToNext)
+                }
+                assessment.bodyweightKg == null -> {
+                    Text(
+                        "A rank needs one current bodyweight reading. It is stored only " +
+                            "on this device.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = gradients.heroContent.copy(alpha = 0.82f),
+                    )
+                    Spacer(Modifier.size(12.dp))
+                    HeroButton(
+                        text = "Add bodyweight",
+                        icon = CadenceIcon.User,
+                        onClick = onOpenProfile,
+                    )
+                }
+                else -> {
+                    Text(
+                        "Your rank starts with a barbell squat, bench press, deadlift or " +
+                            "overhead press.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = gradients.heroContent.copy(alpha = 0.82f),
+                    )
+                    Spacer(Modifier.size(12.dp))
+                    HeroButton(
+                        text = "Browse barbell lifts",
+                        icon = CadenceIcon.Book,
+                        onClick = onOpenLibrary,
+                    )
+                }
+            }
+        }
+
+        CadenceCard {
+            SectionHeader(
+                title = "Rank breakdown",
+                subtitle = "5 tiers · 4 anchor lifts · best estimated 1RM",
+            )
+            Spacer(Modifier.size(10.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                StrengthRank.entries.forEach { tier ->
+                    RankPill(tier, highlighted = tier == assessment.rank)
+                }
+            }
+            Spacer(Modifier.size(12.dp))
+            RankAnchor.entries.forEachIndexed { index, anchor ->
+                val lift = assessment.lifts.firstOrNull { it.anchor == anchor }
+                if (index > 0) ThinDivider()
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(anchor.displayName, style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            lift?.exerciseName ?: "Not logged yet",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (lift != null) {
+                        Column(horizontalAlignment = Alignment.End) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                lift.rank?.let { liftRank ->
+                                    RankPill(liftRank, highlighted = true)
+                                    Spacer(Modifier.size(6.dp))
+                                }
+                                Text(
+                                    Weights.formatWithUnit(lift.bestE1rmKg, unit),
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
+                            }
+                            Text(
+                                lift.ratio?.let { "${Weights.formatAmount(it)}× bodyweight" }
+                                    ?: "Bodyweight needed",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else {
+                        Text(
+                            "—",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.size(8.dp))
+            Text(
+                "Ranks compare your best logged estimated 1RMs with current bodyweight. " +
+                    "They are broad training benchmarks, not tested maximums, competition " +
+                    "classes or health assessments.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
