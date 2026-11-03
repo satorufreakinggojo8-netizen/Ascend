@@ -4,6 +4,7 @@ import com.cadence.fit.data.CadenceState
 import com.cadence.fit.domain.coach.CoachExpression
 import com.cadence.fit.domain.library.ExerciseLibrary
 import com.cadence.fit.domain.model.LoggedSet
+import com.cadence.fit.domain.model.MuscleGroup
 import com.cadence.fit.domain.model.Routine
 import com.cadence.fit.domain.model.RoutineExercise
 import com.cadence.fit.domain.model.ScheduleStatus
@@ -258,6 +259,32 @@ class ScreenModelsTest {
         assertTrue(ranking.all { it.first.appearsOnBodyMap })
         assertEquals(ranking.sortedByDescending { it.second }, ranking)
         assertNull(ranking.firstOrNull { it.first.displayName == "Conditioning" })
+    }
+
+    @Test
+    fun `muscle window records working sets and the best primary-mover lift`() {
+        val dayA = routine("routine-a", "Full body A")
+        val session = completedSession(now, dayA.id, dayA.name)
+        val window = ScreenModels.muscleWindow(
+            state(listOf(dayA), sessions = listOf(session)),
+            ExerciseLibrary,
+            days = 14,
+            nowMs = now,
+            zone = zone,
+        )
+
+        assertEquals(1, window.workingSetsCounted)
+        assertEquals(1, window.setsByMuscle[MuscleGroup.QUADS])
+        assertEquals(1, window.setsByMuscle[MuscleGroup.GLUTES])
+        // Abs are a secondary mover here, so they receive volume but no best lift.
+        assertEquals(3, window.trainedGroups.size)
+
+        val best = window.bestLiftByMuscle.getValue(MuscleGroup.QUADS)
+        assertEquals("goblet-squat", best.exerciseId)
+        assertEquals(24.0 * (1 + 10 / 30.0), best.estimatedOneRepMaxKg, 1e-6)
+        // Goblet squat lists abs as a secondary mover, which must not create a
+        // "best lift" for a muscle that did not drive the movement.
+        assertNull(window.bestLiftByMuscle[MuscleGroup.ABS])
     }
 
     // --- Coaches --------------------------------------------------------------

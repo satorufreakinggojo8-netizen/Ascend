@@ -1,6 +1,8 @@
 package com.cadence.fit.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,9 +28,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cadence.fit.domain.insight.RecoveryContext
+import com.cadence.fit.domain.rank.StrengthRankAssessment
 import com.cadence.fit.domain.time.TimeRanges
 import com.cadence.fit.domain.units.Durations
 import com.cadence.fit.domain.units.Weights
@@ -41,8 +48,9 @@ import com.cadence.fit.ui.components.CadenceCard
 import com.cadence.fit.ui.components.CadenceIcon
 import com.cadence.fit.ui.components.CadenceTopBar
 import com.cadence.fit.ui.components.EmptyState
-import com.cadence.fit.ui.components.PrimaryButton
-import com.cadence.fit.ui.components.SecondaryButton
+import com.cadence.fit.ui.components.HeroButton
+import com.cadence.fit.ui.components.HeroCard
+import com.cadence.fit.ui.components.RankCrest
 import com.cadence.fit.ui.components.SectionHeader
 import com.cadence.fit.ui.components.Sparkline
 import com.cadence.fit.domain.model.ScheduleStatus
@@ -58,7 +66,7 @@ fun HomeScreen(
     viewModel: CadenceViewModel,
     onStartWorkout: (String?) -> Unit,
     onOpenSession: (String) -> Unit,
-    onOpenPlan: () -> Unit,
+    onOpenProgress: () -> Unit,
     onOpenSleep: () -> Unit,
     onOpenLibrary: () -> Unit,
     onBuildPlan: () -> Unit,
@@ -68,7 +76,10 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val unit = state.settings.weightUnit
-    val now = viewModel.nowMs()
+    // Keyed to the data and to today's date, not to a millisecond timestamp that
+    // changed on every recomposition.
+    val today = viewModel.today()
+    val now = remember(state, today) { viewModel.nowMs() }
     val model = remember(state, now) { ScreenModels.home(state, viewModel.catalog, now) }
 
     val sleepStatus by viewModel.sleepStatus.collectAsStateWithLifecycle()
@@ -130,7 +141,20 @@ fun HomeScreen(
 
             WeekStripCard(model, onOpenSchedule)
 
-            ProgressSummaryCard(model, unit, onOpenPlan)
+            HomeRankCard(model.rank, onOpenProgress)
+
+            if (model.summary.totalSessions == 0) {
+                EmptyState(
+                    title = "Your first session starts the story",
+                    message = "Volume, records and the muscle map fill in from what you log. " +
+                        "Nothing here is graded.",
+                    icon = CadenceIcon.TrendUp,
+                    actionLabel = "Browse exercises",
+                    onAction = onOpenLibrary,
+                )
+            } else {
+                ProgressSummaryCard(model, unit, onOpenProgress)
+            }
 
             if (recovery != null) {
                 RecoveryCard(recovery, onOpenSleep)
@@ -168,17 +192,6 @@ fun HomeScreen(
                 }
             }
 
-            if (model.summary.totalSessions == 0) {
-                EmptyState(
-                    title = "No sessions yet",
-                    message = "Your first logged workout will start building your history, " +
-                        "records and charts.",
-                    icon = CadenceIcon.TrendUp,
-                    actionLabel = "Browse exercises",
-                    onAction = onOpenLibrary,
-                )
-            }
-
             Spacer(Modifier.size(8.dp))
         }
     }
@@ -186,29 +199,37 @@ fun HomeScreen(
 
 @Composable
 private fun NextActionCard(action: NextAction, onAct: () -> Unit) {
-    val accent = CadenceTheme.tones
-    CadenceCard {
+    val gradients = CadenceTheme.gradients
+    HeroCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("TODAY", style = MaterialTheme.typography.labelSmall, color = accent.rest)
-            Spacer(Modifier.size(8.dp))
+            Text(
+                "TODAY",
+                style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.8.sp),
+                color = gradients.heroGlow,
+            )
+            Spacer(Modifier.size(10.dp))
             when (action.type) {
-                NextActionType.RESUME_WORKOUT -> Badge("In progress")
-                NextActionType.BUILD_PLAN -> Badge("Setup")
-                NextActionType.REST_DAY -> Badge("Rest")
-                NextActionType.VIEW_SESSION -> Badge("Logged")
+                NextActionType.RESUME_WORKOUT -> HeroBadge("In progress")
+                NextActionType.BUILD_PLAN -> HeroBadge("Setup")
+                NextActionType.REST_DAY -> HeroBadge("Rest")
+                NextActionType.VIEW_SESSION -> HeroBadge("Logged")
                 NextActionType.START_WORKOUT -> Unit
             }
         }
-        Spacer(Modifier.size(10.dp))
-        Text(action.title, style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.size(4.dp))
+        Spacer(Modifier.size(12.dp))
+        Text(
+            action.title,
+            style = MaterialTheme.typography.headlineMedium,
+            color = gradients.heroContent,
+        )
+        Spacer(Modifier.size(6.dp))
         Text(
             action.subtitle,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = gradients.heroContent.copy(alpha = 0.76f),
         )
-        Spacer(Modifier.size(16.dp))
-        PrimaryButton(
+        Spacer(Modifier.size(20.dp))
+        HeroButton(
             text = when (action.type) {
                 NextActionType.RESUME_WORKOUT -> "Continue workout"
                 NextActionType.BUILD_PLAN -> "Answer a few questions"
@@ -225,6 +246,19 @@ private fun NextActionCard(action: NextAction, onAct: () -> Unit) {
             },
             onClick = onAct,
         )
+    }
+}
+
+@Composable
+private fun HeroBadge(text: String) {
+    val gradients = CadenceTheme.gradients
+    Box(
+        Modifier
+            .clip(CircleShape)
+            .background(gradients.heroContent.copy(alpha = 0.14f))
+            .padding(horizontal = 9.dp, vertical = 3.dp),
+    ) {
+        Text(text, style = MaterialTheme.typography.labelSmall, color = gradients.heroContent)
     }
 }
 
@@ -257,7 +291,25 @@ private fun WeekStripCard(model: HomeModel, onOpenSchedule: () -> Unit) {
                     null -> MaterialTheme.colorScheme.surfaceVariant
                 }
                 Column(
-                    Modifier.weight(1f),
+                    Modifier
+                        .weight(1f)
+                        .semantics(mergeDescendants = true) {
+                            val statusLabel = when (day.status) {
+                                ScheduleStatus.COMPLETED -> "completed"
+                                ScheduleStatus.PLANNED -> "planned"
+                                ScheduleStatus.SKIPPED -> "skipped"
+                                null -> "nothing planned"
+                            }
+                            contentDescription = buildString {
+                                append(day.date.dayOfWeek.name.lowercase()
+                                    .replaceFirstChar { it.uppercase() })
+                                append(" ")
+                                append(day.dayOfMonth)
+                                append(", ")
+                                append(statusLabel)
+                                if (day.isToday) append(", today")
+                            }
+                        },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
@@ -268,9 +320,26 @@ private fun WeekStripCard(model: HomeModel, onOpenSchedule: () -> Unit) {
                     Spacer(Modifier.size(6.dp))
                     Box(
                         Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(marker.copy(alpha = if (day.status == null) 1f else 0.18f)),
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(
+                                when (day.status) {
+                                    ScheduleStatus.COMPLETED -> marker.copy(alpha = 0.16f)
+                                    ScheduleStatus.PLANNED -> marker.copy(alpha = 0.10f)
+                                    ScheduleStatus.SKIPPED -> MaterialTheme.colorScheme.surfaceVariant
+                                    null -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                                },
+                            )
+                            .then(
+                                if (day.isToday) {
+                                    Modifier.border(
+                                        BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
+                                        RoundedCornerShape(11.dp),
+                                    )
+                                } else {
+                                    Modifier
+                                },
+                            ),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (day.status == ScheduleStatus.COMPLETED) {
@@ -279,27 +348,16 @@ private fun WeekStripCard(model: HomeModel, onOpenSchedule: () -> Unit) {
                             Text(
                                 day.dayOfMonth,
                                 style = MaterialTheme.typography.labelMedium,
-                                color = if (day.isToday) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = when (day.status) {
+                                    ScheduleStatus.PLANNED -> MaterialTheme.colorScheme.primary
+                                    ScheduleStatus.SKIPPED -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    else -> if (day.isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                },
                             )
                         }
                     }
-                    Spacer(Modifier.size(5.dp))
-                    Box(
-                        Modifier
-                            .size(4.dp)
-                            .clip(CircleShape)
-                            .background(if (day.isToday) MaterialTheme.colorScheme.onSurface else Color.Transparent),
-                    )
                 }
             }
-        }
-        if (model.weekTally.isEmpty) {
-            Spacer(Modifier.size(8.dp))
-            Text(
-                "No planned days yet. Open the week to lay out your sessions.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
@@ -308,11 +366,21 @@ private fun WeekStripCard(model: HomeModel, onOpenSchedule: () -> Unit) {
 private fun ProgressSummaryCard(
     model: HomeModel,
     unit: com.cadence.fit.domain.units.WeightUnit,
-    onOpenPlan: () -> Unit,
+    onOpenProgress: () -> Unit,
 ) {
     val summary = model.summary
-    CadenceCard {
-        SectionHeader(title = "Progress", subtitle = "Last 4 weeks")
+    CadenceCard(onClick = onOpenProgress) {
+        SectionHeader(
+            title = "Progress",
+            subtitle = "Last 4 weeks",
+            trailing = {
+                CadenceIcon(
+                    CadenceIcon.ChevronRight,
+                    size = 18.dp,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+        )
         Spacer(Modifier.size(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             StatTile(
@@ -338,8 +406,40 @@ private fun ProgressSummaryCard(
             Spacer(Modifier.size(16.dp))
             Sparkline(values = model.volumeTrend)
         }
-        Spacer(Modifier.size(14.dp))
-        SecondaryButton(text = "Open your plan", onClick = onOpenPlan)
+    }
+}
+
+@Composable
+private fun HomeRankCard(assessment: StrengthRankAssessment, onOpenProgress: () -> Unit) {
+    val rank = assessment.rank
+    CadenceCard(onClick = onOpenProgress) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RankCrest(rank, size = 46.dp)
+            Spacer(Modifier.size(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "YOUR RANK",
+                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.4.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(rank?.displayName ?: "Unranked", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    when {
+                        rank != null -> "${assessment.anchorCount} of ${assessment.totalAnchors} " +
+                            "anchors · next: ${assessment.nextRank?.displayName ?: "top rank"}"
+                        assessment.bodyweightKg == null -> "Add bodyweight to unlock"
+                        else -> "Log a barbell squat, bench, deadlift or press"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            CadenceIcon(
+                CadenceIcon.ChevronRight,
+                size = 18.dp,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

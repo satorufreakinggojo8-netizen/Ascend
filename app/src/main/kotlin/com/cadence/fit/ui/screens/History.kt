@@ -48,8 +48,8 @@ fun HistoryScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val unit = state.settings.weightUnit
-    val now = viewModel.nowMs()
-    var pendingDelete by remember { mutableStateOf<String?>(null) }
+    val today = viewModel.today()
+    val now = remember(state, today) { viewModel.nowMs() }
     var filterCleared by remember(weekStartEpochDay) { mutableStateOf(false) }
 
     val filterWeek = weekStartEpochDay
@@ -159,18 +159,11 @@ fun HistoryScreen(
                                 InfoNote(session.note)
                             }
                             Spacer(Modifier.size(10.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Badge(
-                                    text = TimeRanges.formatDay(session.completedAtMs),
-                                    container = MaterialTheme.colorScheme.surfaceVariant,
-                                    content = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                FilterChip(
-                                    label = "Delete",
-                                    selected = false,
-                                    onClick = { pendingDelete = session.id },
-                                )
-                            }
+                            Badge(
+                                text = TimeRanges.formatDay(session.completedAtMs),
+                                container = MaterialTheme.colorScheme.surfaceVariant,
+                                content = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                     Spacer(Modifier.size(4.dp))
@@ -180,19 +173,6 @@ fun HistoryScreen(
         }
     }
 
-    pendingDelete?.let { sessionId ->
-        ConfirmDialog(
-            title = "Delete this workout?",
-            message = "Its sets are removed from your history, charts and records. " +
-                "This cannot be undone.",
-            confirmLabel = "Delete workout",
-            onConfirm = {
-                viewModel.deleteSession(sessionId)
-                pendingDelete = null
-            },
-            onDismiss = { pendingDelete = null },
-        )
-    }
 }
 
 /** One finished session, set by set, with per-exercise subtotals. */
@@ -205,7 +185,8 @@ fun SessionDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val unit = state.settings.weightUnit
-    val now = viewModel.nowMs()
+    val today = viewModel.today()
+    val now = remember(state, today) { viewModel.nowMs() }
     val session = state.sessions.firstOrNull { it.id == sessionId }
 
     if (session == null) {
@@ -219,6 +200,7 @@ fun SessionDetailScreen(
     val byExercise = session.exerciseIds.map { exerciseId ->
         exerciseId to session.setsFor(exerciseId).sortedBy { it.setIndex }
     }
+    var pendingDelete by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
         CadenceTopBar(
@@ -332,7 +314,28 @@ fun SessionDetailScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            SecondaryButton(
+                text = "Delete this workout",
+                icon = CadenceIcon.Trash,
+                destructive = true,
+                onClick = { pendingDelete = true },
+            )
             Spacer(Modifier.size(20.dp))
         }
+    }
+
+    if (pendingDelete) {
+        ConfirmDialog(
+            title = "Delete this workout?",
+            message = "Its sets are removed from your history, charts and records. " +
+                "This cannot be undone.",
+            confirmLabel = "Delete workout",
+            onConfirm = {
+                pendingDelete = false
+                viewModel.deleteSession(sessionId)
+                onBack()
+            },
+            onDismiss = { pendingDelete = false },
+        )
     }
 }

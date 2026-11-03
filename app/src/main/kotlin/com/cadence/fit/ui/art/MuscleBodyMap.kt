@@ -1,24 +1,31 @@
 package com.cadence.fit.ui.art
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -29,6 +36,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.cadence.fit.domain.model.BodySide
 import com.cadence.fit.domain.model.MuscleGroup
 import com.cadence.fit.ui.theme.CadenceTheme
@@ -254,9 +262,9 @@ fun MuscleBodyMap(
         BodySideFigure(
             label = "Front",
             regions = FRONT_REGIONS,
-            modifier = Modifier
-                .weight(1f)
-                .aspectRatio(FIGURE_W / FIGURE_H),
+            modifier = Modifier.weight(1f),
+            trainedCount = FRONT_REGIONS.map { it.muscle }.distinct()
+                .count { (volumeByMuscle[it] ?: 0.0) > 0.0 },
             colorFor = ::colorFor,
             isPeak = ::isPeak,
             selected = selected,
@@ -268,9 +276,9 @@ fun MuscleBodyMap(
         BodySideFigure(
             label = "Back",
             regions = BACK_REGIONS,
-            modifier = Modifier
-                .weight(1f)
-                .aspectRatio(FIGURE_W / FIGURE_H),
+            modifier = Modifier.weight(1f),
+            trainedCount = BACK_REGIONS.map { it.muscle }.distinct()
+                .count { (volumeByMuscle[it] ?: 0.0) > 0.0 },
             colorFor = ::colorFor,
             isPeak = ::isPeak,
             selected = selected,
@@ -287,6 +295,7 @@ private fun BodySideFigure(
     label: String,
     regions: List<Region>,
     modifier: Modifier,
+    trainedCount: Int,
     colorFor: (MuscleGroup) -> Color,
     isPeak: (MuscleGroup) -> Boolean,
     selected: MuscleGroup?,
@@ -296,12 +305,23 @@ private fun BodySideFigure(
     onSelect: ((MuscleGroup?) -> Unit)?,
 ) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            label.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.size(4.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                label.uppercase(),
+                style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.4.sp),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                "$trainedCount/${regions.map { it.muscle }.distinct().size} trained",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.size(6.dp))
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
@@ -327,6 +347,7 @@ private fun BodySideFigure(
                 ),
         ) {
             val box = fitBox(size.width, size.height)
+            drawAura(highlightRing)
             withTransform(
                 {
                     translate(box.left, box.top)
@@ -339,7 +360,24 @@ private fun BodySideFigure(
                     val hatched = isPeak(region.muscle)
                     region.shapes.forEach { shape ->
                         val path = smoothPath(shape)
-                        drawPath(path, fill)
+                        val top = lerp(fill, Color.White, 0.18f)
+                        val bottom = lerp(fill, Color.Black, 0.10f)
+                        val bounds = shape.fold(Float.MAX_VALUE to -Float.MAX_VALUE) { acc, point ->
+                            minOf(acc.first, point.y) to maxOf(acc.second, point.y)
+                        }
+                        drawPath(
+                            path = path,
+                            brush = Brush.linearGradient(
+                                colors = listOf(top, bottom),
+                                start = Offset(0f, bounds.first),
+                                end = Offset(0f, bounds.second),
+                            ),
+                        )
+                        drawPath(
+                            path = path,
+                            color = outline.copy(alpha = 0.38f),
+                            style = Stroke(width = 0.45f),
+                        )
                         if (hatched) {
                             clipPath(path) {
                                 var offset = -FIGURE_H
@@ -355,13 +393,46 @@ private fun BodySideFigure(
                             }
                         }
                         if (region.muscle == selected) {
-                            drawPath(path, highlightRing, style = Stroke(width = 2.2f))
+                            drawPath(path, highlightRing.copy(alpha = 0.18f), style = Stroke(width = 6f))
+                            drawPath(path, highlightRing, style = Stroke(width = 1.8f))
+                            clipPath(path) {
+                                var y = bounds.first + 4f
+                                while (y < bounds.second) {
+                                    drawLine(
+                                        color = Color.White.copy(alpha = 0.16f),
+                                        start = Offset(0f, y),
+                                        end = Offset(FIGURE_W, y + 5f),
+                                        strokeWidth = 0.6f,
+                                    )
+                                    y += 6.5f
+                                }
+                            }
                         }
                     }
                 }
             }
         }
     }
+}
+
+/** Soft studio lighting behind each figure, plus a grounded shadow. */
+private fun DrawScope.drawAura(glow: Color) {
+    val center = Offset(size.width / 2f, size.height * 0.34f)
+    val radius = size.minDimension * 0.62f
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(glow.copy(alpha = 0.14f), Color.Transparent),
+            center = center,
+            radius = radius,
+        ),
+        radius = radius,
+        center = center,
+    )
+    drawOval(
+        color = Color.Black.copy(alpha = 0.06f),
+        topLeft = Offset(size.width * 0.24f, size.height * 0.955f),
+        size = Size(size.width * 0.52f, size.height * 0.022f),
+    )
 }
 
 private data class FitBox(val left: Float, val top: Float, val scale: Float)
@@ -402,8 +473,27 @@ private fun DrawScope.drawAnatomyBase(fill: Color, outline: Color) {
             35f, 59f, 31f, 42f, 36f, 33f,
         ),
     )
-    drawPath(torso, fill)
+    drawPath(
+        torso,
+        Brush.verticalGradient(
+            colors = listOf(lerp(fill, Color.White, 0.10f), lerp(fill, Color.Black, 0.06f)),
+            startY = 20f,
+            endY = FIGURE_H,
+        ),
+    )
     drawPath(torso, outline, style = Stroke(width = 0.8f))
+    // One centred seam works on both sides: linea alba in front, spine behind.
+    drawLine(
+        color = outline.copy(alpha = 0.30f),
+        start = Offset(50f, 34f),
+        end = Offset(50f, 103f),
+        strokeWidth = 0.45f,
+    )
+    // Soft creases keep the limbs from reading as plain capsules.
+    drawLine(outline.copy(alpha = 0.22f), Offset(22f, 73f), Offset(28f, 76f), strokeWidth = 0.4f)
+    drawLine(outline.copy(alpha = 0.22f), Offset(72f, 76f), Offset(78f, 73f), strokeWidth = 0.4f)
+    drawLine(outline.copy(alpha = 0.20f), Offset(38f, 150f), Offset(46f, 151f), strokeWidth = 0.4f)
+    drawLine(outline.copy(alpha = 0.20f), Offset(54f, 151f), Offset(62f, 150f), strokeWidth = 0.4f)
 
     // Upper arms, forearms and hands.
     drawCapsule(Offset(33f, 38f), Offset(25f, 70f), 8.5f, fill, outline)
@@ -486,59 +576,66 @@ private fun describeMap(volumeByMuscle: Map<MuscleGroup, Double>, maxVolume: Dou
     return "Front and back muscle map. $body This shows logged training volume, not body composition."
 }
 
-/** The five-step legend shown under the map, with a text scale and a hatch key. */
+/** A continuous scale reads faster than five disconnected swatches. */
 @Composable
-fun MuscleMapLegend(modifier: Modifier = Modifier) {
+fun MuscleMapLegend(
+    modifier: Modifier = Modifier,
+    title: String = "Share of logged volume",
+) {
     val tones = CadenceTheme.tones
     Column(modifier) {
-        Text(
-            "Share of logged volume",
-            style = MaterialTheme.typography.titleSmall,
-        )
-        Spacer(Modifier.size(8.dp))
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            LegendSwatch("None", tones.heatEmpty)
-            LegendSwatch("Low", tones.heatLow)
-            LegendSwatch("Moderate", tones.heatMid)
-            LegendSwatch("High", tones.heatHigh)
-            LegendSwatch("Most", tones.heatPeak, hatched = true)
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "Striped = most",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.size(8.dp))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(10.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            tones.heatEmpty,
+                            tones.heatLow,
+                            tones.heatMid,
+                            tones.heatHigh,
+                            tones.heatPeak,
+                        ),
+                    ),
+                ),
+        )
+        Spacer(Modifier.size(6.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            listOf("None", "Low", "Moderate", "High", "Most").forEach { label ->
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         Spacer(Modifier.size(8.dp))
         Text(
             "Each muscle is shaded against the most-trained group in this window. " +
-                "The highest band is also striped, so the scale does not rely on colour alone. " +
+                "The top band is also striped, so intensity is never colour-only. " +
                 "Tap a muscle for its numbers.",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun LegendSwatch(label: String, color: Color, hatched: Boolean = false) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Canvas(Modifier.size(14.dp)) {
-            drawRoundRect(color, cornerRadius = CornerRadius(4f, 4f))
-            if (hatched) {
-                var offset = -size.height
-                while (offset < size.width + size.height) {
-                    drawLine(
-                        color = Color.Black.copy(alpha = 0.24f),
-                        start = Offset(offset, size.height),
-                        end = Offset(offset + size.height, 0f),
-                        strokeWidth = 1f,
-                    )
-                    offset += 4f
-                }
-            }
-        }
-        Spacer(Modifier.size(6.dp))
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }

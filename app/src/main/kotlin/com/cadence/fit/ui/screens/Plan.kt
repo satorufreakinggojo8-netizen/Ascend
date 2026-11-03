@@ -51,7 +51,6 @@ fun PlanScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val profile = state.profile
-    var pendingDelete by remember { mutableStateOf<Routine?>(null) }
     var awaitingStart by remember { mutableStateOf(false) }
     val activeId = state.activeSession?.id
 
@@ -113,12 +112,10 @@ fun PlanScreen(
                             awaitingStart = true
                             onStartRoutine(routine.id)
                         },
-                        onDelete = { pendingDelete = routine },
                     )
                 }
 
                 Spacer(Modifier.size(4.dp))
-                SecondaryButton(text = "New routine", icon = CadenceIcon.Plus, onClick = onNewRoutine)
                 SecondaryButton(
                     text = "Coaches & guidance",
                     icon = CadenceIcon.Coach,
@@ -134,18 +131,6 @@ fun PlanScreen(
         }
     }
 
-    pendingDelete?.let { routine ->
-        ConfirmDialog(
-            title = "Delete ${routine.name}?",
-            message = "The routine is removed. Workouts you already logged are kept in history.",
-            confirmLabel = "Delete routine",
-            onConfirm = {
-                viewModel.deleteRoutine(routine.id)
-                pendingDelete = null
-            },
-            onDismiss = { pendingDelete = null },
-        )
-    }
 }
 
 @Composable
@@ -193,7 +178,6 @@ private fun RoutineCard(
     routine: Routine,
     onEdit: () -> Unit,
     onStart: () -> Unit,
-    onDelete: () -> Unit,
 ) {
     CadenceCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -238,21 +222,7 @@ private fun RoutineCard(
         Spacer(Modifier.size(14.dp))
         PrimaryButton(text = "Start ${routine.name}", icon = CadenceIcon.Timer, onClick = onStart)
         Spacer(Modifier.size(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SecondaryButton(
-                text = "Edit",
-                icon = CadenceIcon.Edit,
-                onClick = onEdit,
-                modifier = Modifier.weight(1f),
-            )
-            SecondaryButton(
-                text = "Delete",
-                icon = CadenceIcon.Trash,
-                destructive = true,
-                onClick = onDelete,
-                modifier = Modifier.weight(1f),
-            )
-        }
+        SecondaryButton(text = "Open routine", icon = CadenceIcon.Edit, onClick = onEdit)
     }
 }
 

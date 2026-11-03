@@ -179,9 +179,10 @@ approved photographs are in the repository.
 
 Cadence lives at the root of the `Ascend` repository:
 `satorufreakinggojo8-netizen/Ascend`. `main` holds the complete app and the Android CI
-workflow; work lands through feature branches and pull requests. This upgrade is on
-`feature/premium-training-profile`, opened as a pull request into `main` for review.
-No history is rewritten and nothing is force-pushed.
+workflow; work lands through feature branches and pull requests. The training-splits and
+profile upgrade was merged in pull request #2; the follow-up interface and performance
+pass is on `feature/premium-training-profile`. No history is rewritten and nothing is
+force-pushed.
 
 The CI workflow runs `./gradlew test assembleDebug` on JDK 17 and uploads the debug APK
 as a build artifact. The four approved David Laid portraits are still missing before the

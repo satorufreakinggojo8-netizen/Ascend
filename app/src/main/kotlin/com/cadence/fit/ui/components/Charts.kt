@@ -1,7 +1,5 @@
 package com.cadence.fit.ui.components
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -16,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -26,6 +23,8 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -43,6 +42,7 @@ fun BarChart(
     accent: Color = MaterialTheme.colorScheme.primary,
     highlightIndex: Int? = null,
     height: Dp = 140.dp,
+    description: String? = null,
     onSelect: ((Int) -> Unit)? = null,
 ) {
     if (values.isEmpty()) return
@@ -50,12 +50,20 @@ fun BarChart(
     val muted = MaterialTheme.colorScheme.surfaceVariant
     val outline = MaterialTheme.colorScheme.outlineVariant
     val highlight = CadenceTheme.tones.heatHigh
+    val axisLabels = thinnedLabels(labels)
 
     Column(modifier.fillMaxWidth()) {
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(height)
+                .then(
+                    if (description != null) {
+                        Modifier.semantics { contentDescription = description }
+                    } else {
+                        Modifier
+                    },
+                )
                 .then(
                     if (onSelect != null) {
                         Modifier.pointerInput(values.size) {
@@ -98,20 +106,16 @@ fun BarChart(
         }
         Spacer(Modifier.size(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            thinnedLabels(labels).forEachIndexed { index, label ->
+            axisLabels.forEachIndexed { index, label ->
                 Text(
                     label,
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (index == 0) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
                     textAlign = when {
                         labels.size <= 4 -> TextAlign.Center
                         index == 0 -> TextAlign.Start
-                        index == thinnedLabels(labels).lastIndex -> TextAlign.End
+                        index == axisLabels.lastIndex -> TextAlign.End
                         else -> TextAlign.Center
                     },
                     maxLines = 1,
@@ -143,6 +147,7 @@ fun LineChart(
     highlightIndex: Int? = null,
     height: Dp = 160.dp,
     targetLine: Float? = null,
+    description: String? = null,
     onSelect: ((Int) -> Unit)? = null,
 ) {
     if (values.size < 2) {
@@ -161,14 +166,11 @@ fun LineChart(
         return
     }
 
-    val animatedProgress by animateFloatAsState(
-        targetValue = 1f,
-        animationSpec = tween(durationMillis = 550),
-        label = "lineChartProgress",
-    )
-    val minValue = values.min()
-    val maxValue = values.max()
-    val span = (maxValue - minValue).takeIf { it > 0.01f } ?: 1f
+    // A zero baseline keeps small week-to-week changes from looking dramatic, and
+    // including the target means the dashed line is always inside the plot.
+    val minValue = 0f
+    val maxValue = maxOf(values.max(), targetLine ?: 0f, 1f)
+    val span = (maxValue - minValue).coerceAtLeast(0.01f)
     val grid = MaterialTheme.colorScheme.outlineVariant
     val pointColor = CadenceTheme.tones.heatHigh
     // Read theme colours here: the Canvas draw lambda is not @Composable.
@@ -180,6 +182,13 @@ fun LineChart(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(height)
+                .then(
+                    if (description != null) {
+                        Modifier.semantics { contentDescription = description }
+                    } else {
+                        Modifier
+                    },
+                )
                 .then(
                     if (onSelect != null) {
                         Modifier.pointerInput(values.size) {

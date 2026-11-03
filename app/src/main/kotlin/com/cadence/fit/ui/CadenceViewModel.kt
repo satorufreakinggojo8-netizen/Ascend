@@ -24,11 +24,14 @@ import com.cadence.fit.domain.sleep.SleepRepository
 import com.cadence.fit.domain.units.WeightUnit
 import com.cadence.fit.domain.workout.WorkoutLogger
 import java.time.LocalDate
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class UiMessage(val id: Long, val text: String, val isError: Boolean = false)
 
@@ -59,7 +62,7 @@ class CadenceViewModel(
     private var messageCounter = 0L
 
     init {
-        viewModelScope.launch {
+        launchIo {
             repository.load()
             // The calendar is filled lazily so existing installs (and imported
             // backups without a plan) get a week without a migration prompt.
@@ -70,6 +73,14 @@ class CadenceViewModel(
 
     fun nowMs(): Long = SystemClock.nowMs()
 
+    /**
+     * Database reads, writes and backup file I/O run off the main thread. Screens
+     * still collect the state flow, so every write appears immediately; scrolling
+     * and typing simply no longer wait on SQLite.
+     */
+    private fun launchIo(block: suspend CoroutineScope.() -> Unit) =
+        viewModelScope.launch(Dispatchers.IO, block = block)
+
     fun today(): LocalDate = repository.today()
 
     fun currentWeek(): LocalDate = repository.currentWeek()
@@ -79,20 +90,20 @@ class CadenceViewModel(
 
     // --- Profile, plan and routines ------------------------------------------
 
-    fun saveProfile(profile: TrainingProfile) = viewModelScope.launch {
+    fun saveProfile(profile: TrainingProfile) = launchIo {
         repository.saveProfile(profile)
     }
 
-    fun saveSettings(settings: AppSettings) = viewModelScope.launch {
+    fun saveSettings(settings: AppSettings) = launchIo {
         repository.saveSettings(settings)
     }
 
     /** Saves optional age, height or a weight reading. Nothing here is required. */
-    fun saveBodyProfile(body: BodyProfile) = viewModelScope.launch {
+    fun saveBodyProfile(body: BodyProfile) = launchIo {
         repository.saveBodyProfile(body)
     }
 
-    fun recordWeight(weightKg: Double) = viewModelScope.launch {
+    fun recordWeight(weightKg: Double) = launchIo {
         val next = state.value.bodyProfile.withWeight(weightKg, nowMs())
         repository.saveBodyProfile(next)
         announce("Weight saved for today")
@@ -102,7 +113,7 @@ class CadenceViewModel(
      * Applies a split after the preview edits. Routines are added, never replaced,
      * and the calendar is laid out on the split's exact weekdays.
      */
-    fun applySplit(template: SplitTemplate, edited: SplitTemplate = template) = viewModelScope.launch {
+    fun applySplit(template: SplitTemplate, edited: SplitTemplate = template) = launchIo {
         val builder = PlanBuilder(catalog, UuidGenerator)
         val application = repository.applySplit(
             template = edited,
@@ -117,7 +128,7 @@ class CadenceViewModel(
     }
 
     /** Called at the end of onboarding: saves the profile, unit and a new plan. */
-    fun finishOnboarding(profile: TrainingProfile, unit: WeightUnit? = null) = viewModelScope.launch {
+    fun finishOnboarding(profile: TrainingProfile, unit: WeightUnit? = null) = launchIo {
         val saved = profile.copy(onboardingComplete = true)
             .withPlan("Starter plan")
         repository.saveProfile(saved)
@@ -131,7 +142,7 @@ class CadenceViewModel(
         announce("Built ${plan.routines.size} routines for you")
     }
 
-    fun regeneratePlan() = viewModelScope.launch {
+    fun regeneratePlan() = launchIo {
         val profile = state.value.profile.withPlan("Starter plan")
         val builder = PlanBuilder(catalog, UuidGenerator)
         val plan = builder.buildStarterPlan(profile, nowMs())
@@ -141,7 +152,7 @@ class CadenceViewModel(
         announce("Plan rebuilt from your current settings")
     }
 
-    fun buildPlanFrom(profile: TrainingProfile) = viewModelScope.launch {
+    fun buildPlanFrom(profile: TrainingProfile) = launchIo {
         val next = profile.withPlan("Starter plan")
         val builder = PlanBuilder(catalog, UuidGenerator)
         val plan = builder.buildStarterPlan(next, nowMs())
@@ -152,31 +163,31 @@ class CadenceViewModel(
 
     // --- Training calendar ----------------------------------------------------
 
-    fun ensureScheduleFor(weekStart: LocalDate) = viewModelScope.launch {
+    fun ensureScheduleFor(weekStart: LocalDate) = launchIo {
         repository.ensureWeek(weekStart)
     }
 
-    fun moveScheduled(slotId: String, date: LocalDate) = viewModelScope.launch {
+    fun moveScheduled(slotId: String, date: LocalDate) = launchIo {
         if (repository.moveSlot(slotId, date)) {
             announce("Moved to ${date.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }}")
         }
     }
 
-    fun skipScheduled(slotId: String) = viewModelScope.launch {
+    fun skipScheduled(slotId: String) = launchIo {
         if (repository.skipSlot(slotId)) announce("Marked as skipped — nothing is removed from history")
     }
 
-    fun reopenScheduled(slotId: String) = viewModelScope.launch {
+    fun reopenScheduled(slotId: String) = launchIo {
         if (repository.reopenSlot(slotId)) announce("Back on the plan")
     }
 
-    fun deleteScheduled(slotId: String) = viewModelScope.launch {
+    fun deleteScheduled(slotId: String) = launchIo {
         if (repository.deleteScheduleSlot(slotId)) announce("Removed from the calendar")
     }
 
     /** Links a planned day to a workout that is already saved in history. */
-    fun completeScheduled(slotId: String) = viewModelScope.launch {
-        val slot = state.value.schedule.firstOrNull { it.id == slotId } ?: return@launch
+    fun completeScheduled(slotId: String) = launchIo {
+        val slot = state.value.schedule.firstOrNull { it.id == slotId } ?: return@launchIo
         val linkedIds = state.value.schedule.mapNotNull { it.sessionId }.toSet()
         val session = state.value.completedSessions
             .filter { candidate -> candidate.id !in linkedIds }
@@ -192,29 +203,29 @@ class CadenceViewModel(
             )
         if (session == null) {
             warn("No saved workout to link yet. Log the session and it will attach by itself.")
-            return@launch
+            return@launchIo
         }
         if (repository.markSlotComplete(slotId, session.id, session.completedAtMs)) {
             announce("Linked to ${session.routineName}")
         }
     }
 
-    fun clearPlannedSchedule() = viewModelScope.launch {
+    fun clearPlannedSchedule() = launchIo {
         if (repository.clearPlannedSchedule()) announce("Planned days cleared")
     }
 
-    fun saveRoutine(routine: Routine) = viewModelScope.launch {
+    fun saveRoutine(routine: Routine) = launchIo {
         repository.saveRoutine(routine)
     }
 
-    fun deleteRoutine(routineId: String) = viewModelScope.launch {
+    fun deleteRoutine(routineId: String) = launchIo {
         repository.deleteRoutine(routineId)
         announce("Routine deleted")
     }
 
     // --- Session logging ------------------------------------------------------
 
-    fun startSession(routineId: String?) = viewModelScope.launch {
+    fun startSession(routineId: String?) = launchIo {
         val routine = routineId?.let { id -> state.value.routines.firstOrNull { it.id == id } }
         repository.startSession(routine)
     }
@@ -227,8 +238,8 @@ class CadenceViewModel(
         rpe: Double?,
         isWarmup: Boolean,
         note: String,
-    ) = viewModelScope.launch {
-        val session = state.value.sessions.firstOrNull { it.id == sessionId } ?: return@launch
+    ) = launchIo {
+        val session = state.value.sessions.firstOrNull { it.id == sessionId } ?: return@launchIo
         val supersetGroup = session.routineId
             ?.let { id -> state.value.routines.firstOrNull { it.id == id } }
             ?.exercises
@@ -260,8 +271,8 @@ class CadenceViewModel(
         rpe: Double?,
         isWarmup: Boolean,
         note: String,
-    ) = viewModelScope.launch {
-        val session = state.value.sessions.firstOrNull { it.id == sessionId } ?: return@launch
+    ) = launchIo {
+        val session = state.value.sessions.firstOrNull { it.id == sessionId } ?: return@launchIo
         repository.updateSet(session, setId) { set ->
             set.copy(
                 weightKg = weightKg,
@@ -274,28 +285,28 @@ class CadenceViewModel(
         announce("Set updated")
     }
 
-    fun undoLastSet(sessionId: String, exerciseId: String) = viewModelScope.launch {
-        val session = state.value.sessions.firstOrNull { it.id == sessionId } ?: return@launch
+    fun undoLastSet(sessionId: String, exerciseId: String) = launchIo {
+        val session = state.value.sessions.firstOrNull { it.id == sessionId } ?: return@launchIo
         val target = session.sets.filter { it.exerciseId == exerciseId }.maxByOrNull { it.completedAtMs }
         if (target == null) {
             announce("Nothing to undo for this exercise")
-            return@launch
+            return@launchIo
         }
         repository.removeSet(session, target.id)
         announce("Last set removed")
     }
 
-    fun deleteSet(sessionId: String, setId: String) = viewModelScope.launch {
-        val session = state.value.sessions.firstOrNull { it.id == sessionId } ?: return@launch
+    fun deleteSet(sessionId: String, setId: String) = launchIo {
+        val session = state.value.sessions.firstOrNull { it.id == sessionId } ?: return@launchIo
         repository.removeSet(session, setId)
         announce("Set deleted")
     }
 
-    fun finishSession(sessionId: String, note: String = "") = viewModelScope.launch {
+    fun finishSession(sessionId: String, note: String = "") = launchIo {
         val session = state.value.sessions.firstOrNull { it.id == sessionId }
         if (session == null || session.sets.isEmpty()) {
             warn("Log at least one set before finishing")
-            return@launch
+            return@launchIo
         }
         val finished = session.copy(endedAtMs = nowMs(), note = note.ifBlank { session.note })
         repository.saveSession(finished)
@@ -303,13 +314,13 @@ class CadenceViewModel(
         announce("Workout saved")
     }
 
-    fun discardSession(sessionId: String) = viewModelScope.launch {
+    fun discardSession(sessionId: String) = launchIo {
         repository.deleteSession(sessionId)
         repository.clearActiveSession()
         warn("Workout discarded and not saved")
     }
 
-    fun deleteSession(sessionId: String) = viewModelScope.launch {
+    fun deleteSession(sessionId: String) = launchIo {
         repository.deleteSession(sessionId)
         announce("Session deleted")
     }
@@ -321,14 +332,14 @@ class CadenceViewModel(
         if (mutableSleepStatus.value.isConnected) refreshSleepInternal()
     }
 
-    fun enableSleep() = viewModelScope.launch { updateSleepStatus(sleepRepository.enable()) }
+    fun enableSleep() = launchIo { updateSleepStatus(sleepRepository.enable()) }
 
     /**
      * The sleep switch on the settings page and the sleep page both drive the same
      * stored opt-in, so the two screens can never disagree about whether reading is
      * on. Turning it off also clears the last-read time.
      */
-    fun setSleepSyncEnabled(enabled: Boolean) = viewModelScope.launch {
+    fun setSleepSyncEnabled(enabled: Boolean) = launchIo {
         if (enabled) {
             updateSleepStatus(sleepRepository.enable())
         } else {
@@ -338,7 +349,7 @@ class CadenceViewModel(
         }
     }
 
-    fun recordSleepPermission(granted: Boolean) = viewModelScope.launch {
+    fun recordSleepPermission(granted: Boolean) = launchIo {
         updateSleepStatus(sleepRepository.recordPermission(granted))
         if (granted) {
             refreshSleepInternal()
@@ -348,7 +359,7 @@ class CadenceViewModel(
         }
     }
 
-    fun disconnectSleep() = viewModelScope.launch {
+    fun disconnectSleep() = launchIo {
         updateSleepStatus(sleepRepository.disable())
         mutableSleepSessions.value = emptyList()
         announce("Sleep sync turned off. Already-synced sessions are no longer read.")
@@ -364,7 +375,7 @@ class CadenceViewModel(
     }
 
     /** Called when the screen appears or the app resumes, since permission can change. */
-    fun refreshSleep() = viewModelScope.launch {
+    fun refreshSleep() = launchIo {
         val status = sleepRepository.status()
         mutableSleepStatus.value = status
         if (status.isConnected) refreshSleepInternal() else mutableSleepSessions.value = emptyList()
@@ -402,7 +413,7 @@ class CadenceViewModel(
 
     // --- Export, import and deletion -----------------------------------------
 
-    fun exportBackup(uri: Uri) = viewModelScope.launch {
+    fun exportBackup(uri: Uri) = launchIo {
         runCatching {
             val json = repository.exportBackup()
             backupService.writeToUri(uri, json)
@@ -413,7 +424,7 @@ class CadenceViewModel(
         }
     }
 
-    fun importBackup(uri: Uri) = viewModelScope.launch {
+    fun importBackup(uri: Uri) = launchIo {
         runCatching {
             val text = backupService.readFromUri(uri)
             repository.importBackup(text)
@@ -424,12 +435,13 @@ class CadenceViewModel(
         }
     }
 
-    fun deleteAllData(onDeleted: () -> Unit = {}) = viewModelScope.launch {
+    fun deleteAllData(onDeleted: () -> Unit = {}) = launchIo {
         repository.deleteAllData()
         mutableSleepSessions.value = emptyList()
         mutableSleepStatus.value = sleepRepository.disable()
         announce("All local data deleted")
-        onDeleted()
+        // The callback navigates, which must happen on the main thread.
+        withContext(Dispatchers.Main.immediate) { onDeleted() }
     }
 
     // --- Transient messages ---------------------------------------------------

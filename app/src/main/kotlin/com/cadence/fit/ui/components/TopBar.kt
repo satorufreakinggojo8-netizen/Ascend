@@ -12,11 +12,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -37,13 +40,13 @@ fun CadenceTopBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onBack != null) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .minimumInteractiveComponentSize()
                     .clip(CircleShape)
                     .clickable(role = Role.Button, onClickLabel = "Go back", onClick = onBack),
                 contentAlignment = Alignment.Center,
@@ -57,7 +60,7 @@ fun CadenceTopBar(
             }
             Spacer(Modifier.width(4.dp))
         } else {
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(0.dp))
         }
 
         Column(Modifier.weight(1f)) {
@@ -76,17 +79,28 @@ fun CadenceTopBar(
                 val description = actionDescriptions.getOrNull(index)
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .minimumInteractiveComponentSize()
                         .clip(CircleShape)
                         .clickable(role = Role.Button, onClick = onClick),
                     contentAlignment = Alignment.Center,
                 ) {
-                    CadenceIcon(
-                        icon,
-                        size = 20.dp,
-                        contentDescription = description,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Box(
+                        Modifier
+                            .size(36.dp)
+                            .shadow(1.dp, RoundedCornerShape(12.dp), clip = false)
+                            .background(
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                RoundedCornerShape(12.dp),
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CadenceIcon(
+                            icon,
+                            size = 19.dp,
+                            contentDescription = description,
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
                 }
             }
         }

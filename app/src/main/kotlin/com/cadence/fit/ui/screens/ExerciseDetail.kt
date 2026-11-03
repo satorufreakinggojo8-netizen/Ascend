@@ -56,7 +56,8 @@ fun ExerciseDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val unit = state.settings.weightUnit
-    val now = viewModel.nowMs()
+    val today = viewModel.today()
+    val now = remember(state, today) { viewModel.nowMs() }
     val model = remember(state, exerciseId, routineExerciseId, now) {
         ScreenModels.exerciseDetail(state, viewModel.catalog, exerciseId, unit, now, routineExerciseId)
     }

@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,9 +15,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -27,6 +28,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,12 +75,15 @@ fun LibraryScreen(
 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    // The controller is long-lived; read the latest query instead of the value
+    // captured when the microphone controller was first created.
+    val currentQuery by rememberUpdatedState(query)
     val voiceController = remember(context) {
         VoiceInputController(
             context = context,
             onReady = { voiceState = VoiceSearchState(phase = com.cadence.fit.ui.voice.VoiceSearchPhase.LISTENING) },
             onFinished = { text ->
-                val next = VoiceSearchPolicy.onResult(text, query)
+                val next = VoiceSearchPolicy.onResult(text, currentQuery)
                 voiceState = next
                 if (next.query.isNotEmpty()) query = next.query
             },
@@ -161,7 +166,7 @@ fun LibraryScreen(
                 trailingIcon = {
                     IconButton(
                         onClick = onVoiceClick,
-                        modifier = Modifier.size(44.dp),
+                        modifier = Modifier.size(48.dp),
                     ) {
                         CadenceIcon(
                             if (voiceState.isListening) CadenceIcon.Close else CadenceIcon.Mic,
@@ -192,10 +197,10 @@ fun LibraryScreen(
                 )
             }
             Spacer(Modifier.size(10.dp))
-            Row(
-                Modifier.fillMaxWidth(),
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 FilterChip(
                     label = if (showFilters) "Hide filters" else "Filters",
@@ -207,7 +212,6 @@ fun LibraryScreen(
                     selected = onlyAvailable,
                     onClick = { onlyAvailable = !onlyAvailable },
                 )
-                Spacer(Modifier.weight(1f))
                 if (query.isNotBlank() || muscleGroups.isNotEmpty()) {
                     FilterChip(
                         label = "Clear",
@@ -247,35 +251,36 @@ fun LibraryScreen(
 
         Spacer(Modifier.size(12.dp))
 
-        Column(
-            Modifier
+        LazyColumn(
+            modifier = Modifier
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(bottom = 16.dp),
         ) {
             if (results.isEmpty()) {
-                EmptyState(
-                    title = "Nothing matches",
-                    message = if (onlyAvailable) {
-                        "Try turning off the equipment filter, or clear the search."
-                    } else {
-                        "Try a different muscle group or search term."
-                    },
-                    icon = CadenceIcon.Search,
-                    actionLabel = "Clear filters",
-                    onAction = {
-                        query = ""
-                        muscleGroups = emptySet()
-                        onlyAvailable = false
-                    },
-                )
+                item {
+                    EmptyState(
+                        title = "Nothing matches",
+                        message = if (onlyAvailable) {
+                            "Try turning off the equipment filter, or clear the search."
+                        } else {
+                            "Try a different muscle group or search term."
+                        },
+                        icon = CadenceIcon.Search,
+                        actionLabel = "Clear filters",
+                        onAction = {
+                            query = ""
+                            muscleGroups = emptySet()
+                            onlyAvailable = false
+                        },
+                    )
+                }
             } else {
-                results.forEach { exercise ->
+                items(results, key = { it.id }) { exercise ->
                     ExerciseRow(exercise = exercise, onClick = { onOpenExercise(exercise.id) })
                 }
             }
-            Spacer(Modifier.size(16.dp))
         }
     }
 }

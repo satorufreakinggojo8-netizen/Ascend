@@ -78,7 +78,7 @@ fun CoachesScreen(
                 slot = coach.photoFor(CoachExpression.IDLE),
                 description = "${coach.name}, idle portrait",
                 corner = 26.dp,
-                modifier = Modifier.fillMaxWidth(0.82f),
+                modifier = Modifier.fillMaxWidth(0.62f),
             )
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -131,7 +131,8 @@ fun CoachProfileScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sleepStatus by viewModel.sleepStatus.collectAsStateWithLifecycle()
     val sleepSessions by viewModel.sleepSessions.collectAsStateWithLifecycle()
-    val now = viewModel.nowMs()
+    val today = viewModel.today()
+    val now = remember(state, today) { viewModel.nowMs() }
     val coach = CoachRoster.byId(coachId)
 
     if (coach == null) {
@@ -182,11 +183,6 @@ fun CoachProfileScreen(
                 photo = coach.photoFor(presence.expression),
                 photoDescription = presence.photoDescription,
                 expressionLabel = presence.expression.displayName,
-            )
-
-            InfoNote(
-                text = "Showing the ${presence.expression.displayName.lowercase()} portrait. " +
-                    CoachRoster.PHOTO_NOTE,
             )
 
             SectionHeader(title = "Confirmed", subtitle = "Supplied by you")

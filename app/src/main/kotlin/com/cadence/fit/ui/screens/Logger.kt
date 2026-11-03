@@ -3,8 +3,10 @@ package com.cadence.fit.ui.screens
 import android.media.AudioManager
 import android.media.ToneGenerator
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -100,6 +102,9 @@ fun LoggerScreen(
     val session = state.sessions.firstOrNull { it.id == sessionId }
     val settings = state.settings
     val unit = settings.weightUnit
+    // Previous performance is relative to when this workout was opened; the
+    // timestamp for newly logged sets is still read fresh at save time.
+    val sessionOpenedAt = remember { viewModel.nowMs() }
 
     val view = LocalView.current
     DisposableEffect(settings.keepScreenOnDuringWorkout) {
@@ -136,6 +141,15 @@ fun LoggerScreen(
     var pendingFinish by remember { mutableStateOf(false) }
     var pendingDiscard by remember { mutableStateOf(false) }
     var toast by remember { mutableStateOf<String?>(null) }
+
+    // A success note is only useful for a few seconds; leaving it on screen made
+    // it look like the last set was still being saved.
+    LaunchedEffect(toast) {
+        if (toast != null) {
+            delay(4000)
+            toast = null
+        }
+    }
 
     // --- rest timer -----------------------------------------------------------
 
@@ -256,6 +270,8 @@ fun LoggerScreen(
                 ExerciseLogger(
                     viewModel = viewModel,
                     session = session,
+                    sessions = state.sessions,
+                    previousNowMs = sessionOpenedAt,
                     slot = current,
                     unit = unit,
                     onUnitChange = { selected ->
@@ -461,6 +477,8 @@ private fun RestTimerBar(
 private fun ExerciseLogger(
     viewModel: CadenceViewModel,
     session: WorkoutSession,
+    sessions: List<WorkoutSession>,
+    previousNowMs: Long,
     slot: LogSlot,
     unit: WeightUnit,
     onUnitChange: (WeightUnit) -> Unit,
@@ -472,10 +490,9 @@ private fun ExerciseLogger(
     onRemoveExtra: () -> Unit,
     isExtra: Boolean,
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
     val now = viewModel.nowMs()
-    val previous = remember(session.id, slot.exerciseId, now) {
-        WorkoutLogger.previousPerformance(state.sessions, slot.exerciseId, now)
+    val previous = remember(session.id, slot.exerciseId, previousNowMs) {
+        WorkoutLogger.previousPerformance(sessions, slot.exerciseId, previousNowMs)
     }
 
     var isWarmup by remember(slot.exerciseId) { mutableStateOf(false) }
@@ -513,6 +530,7 @@ private fun ExerciseLogger(
     var note by remember(slot.exerciseId) { mutableStateOf("") }
     var editingSetId by remember(slot.exerciseId) { mutableStateOf<String?>(null) }
     var showPlateCalculator by remember(slot.exerciseId) { mutableStateOf(false) }
+    var pendingDelete by remember(slot.exerciseId) { mutableStateOf<LoggedSet?>(null) }
 
     val logged = session.setsFor(slot.exerciseId).sortedBy { it.setIndex }
 
@@ -521,6 +539,7 @@ private fun ExerciseLogger(
             title = slot.exercise.name,
             subtitle = "${slot.targetSets} × ${slot.repRange.first}-${slot.repRange.last} reps · " +
                 "${slot.restSeconds}s rest",
+            modifier = Modifier.clickable(onClick = onOpenExercise),
             trailing = {
                 CadenceIcon(
                     CadenceIcon.ChevronRight,
@@ -542,21 +561,14 @@ private fun ExerciseLogger(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.size(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (isExtra) {
+            Spacer(Modifier.size(12.dp))
             SecondaryButton(
-                text = "About this exercise",
-                onClick = onOpenExercise,
-                modifier = Modifier.weight(1f),
+                text = "Remove from this workout",
+                icon = CadenceIcon.Trash,
+                destructive = true,
+                onClick = onRemoveExtra,
             )
-            if (isExtra) {
-                SecondaryButton(
-                    text = "Remove",
-                    destructive = true,
-                    onClick = onRemoveExtra,
-                    modifier = Modifier.weight(1f),
-                )
-            }
         }
     }
 
@@ -576,7 +588,7 @@ private fun ExerciseLogger(
                         note = set.note
                         isWarmup = set.isWarmup
                     },
-                    onDelete = { viewModel.deleteSet(session.id, set.id) },
+                    onDelete = { pendingDelete = set },
                 )
             }
             Spacer(Modifier.size(6.dp))
@@ -810,6 +822,25 @@ private fun ExerciseLogger(
             },
         )
     }
+
+    pendingDelete?.let { set ->
+        ConfirmDialog(
+            title = "Delete set ${set.setIndex}?",
+            message = "${Weights.format(set.weightKg, unit)} ${unit.abbreviation} × ${set.reps} " +
+                "will be removed from this workout.",
+            confirmLabel = "Delete set",
+            onConfirm = {
+                viewModel.deleteSet(session.id, set.id)
+                pendingDelete = null
+                if (editingSetId == set.id) {
+                    editingSetId = null
+                    note = ""
+                    rpe = null
+                }
+            },
+            onDismiss = { pendingDelete = null },
+        )
+    }
 }
 
 private fun isRecord(previous: PreviousPerformance?, weightKg: Double, reps: Int): Boolean {
@@ -884,28 +915,39 @@ private fun NumeralRow(
     onMinus: () -> Unit,
     onPlus: () -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(96.dp),
-        )
-        StepButton(
-            icon = CadenceIcon.Minus,
-            contentDescription = "Decrease $label",
-            onClick = onMinus,
-            size = 60.dp,
-        )
-        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-            Text(value, style = MaterialTheme.typography.displaySmall)
+    BoxWithConstraints {
+        val compact = maxWidth < 340.dp
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.width(if (compact) 68.dp else 96.dp),
+            )
+            StepButton(
+                icon = CadenceIcon.Minus,
+                contentDescription = "Decrease $label",
+                onClick = onMinus,
+                size = 60.dp,
+            )
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                Text(
+                    value,
+                    style = if (compact) {
+                        MaterialTheme.typography.headlineMedium
+                    } else {
+                        MaterialTheme.typography.displaySmall
+                    },
+                    maxLines = 1,
+                )
+            }
+            StepButton(
+                icon = CadenceIcon.Plus,
+                contentDescription = "Increase $label",
+                onClick = onPlus,
+                size = 60.dp,
+            )
         }
-        StepButton(
-            icon = CadenceIcon.Plus,
-            contentDescription = "Increase $label",
-            onClick = onPlus,
-            size = 60.dp,
-        )
     }
 }
 

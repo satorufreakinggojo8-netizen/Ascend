@@ -5,6 +5,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
@@ -27,12 +29,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
@@ -48,10 +54,11 @@ fun CadenceCard(
     content: @Composable () -> Unit,
 ) {
     val shape = MaterialTheme.shapes.medium
-    val border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
+    val border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    val lifted = modifier.shadow(2.dp, shape, clip = false)
     if (onClick == null) {
         Surface(
-            modifier = modifier.fillMaxWidth(),
+            modifier = lifted.fillMaxWidth(),
             shape = shape,
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
@@ -61,7 +68,7 @@ fun CadenceCard(
         }
     } else {
         Surface(
-            modifier = modifier.fillMaxWidth(),
+            modifier = lifted.fillMaxWidth(),
             shape = shape,
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
@@ -70,6 +77,83 @@ fun CadenceCard(
         ) {
             Column(Modifier.padding(18.dp)) { content() }
         }
+    }
+}
+
+/**
+ * A stage for the one thing a screen wants you to see first. The decorative
+ * glow is painted once and kept far from text so labels stay legible.
+ */
+@Composable
+fun HeroCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val gradients = CadenceTheme.gradients
+    val shape = MaterialTheme.shapes.large
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(12.dp, shape, clip = false)
+            .clip(shape)
+            .background(Brush.linearGradient(gradients.hero)),
+    ) {
+        Canvas(Modifier.matchParentSize()) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(gradients.heroGlow.copy(alpha = 0.30f), Color.Transparent),
+                    center = Offset(size.width * 0.94f, size.height * 0.06f),
+                    radius = size.width * 0.62f,
+                ),
+                radius = size.width * 0.62f,
+                center = Offset(size.width * 0.94f, size.height * 0.06f),
+            )
+            drawCircle(
+                color = gradients.heroContent.copy(alpha = 0.055f),
+                radius = size.width * 0.44f,
+                center = Offset(size.width * 0.10f, size.height * 1.04f),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.2f),
+            )
+            drawCircle(
+                color = gradients.heroContent.copy(alpha = 0.045f),
+                radius = size.width * 0.60f,
+                center = Offset(size.width * 0.10f, size.height * 1.04f),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.2f),
+            )
+        }
+        Column(Modifier.padding(horizontal = 22.dp, vertical = 22.dp), content = content)
+    }
+}
+
+/** Cream-on-green action that belongs on a [HeroCard]. */
+@Composable
+fun HeroButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: CadenceIcon? = null,
+) {
+    val gradients = CadenceTheme.gradients
+    val shape = MaterialTheme.shapes.small
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(gradients.heroContent)
+            .clickable(onClick = onClick)
+            .padding(vertical = 15.dp, horizontal = 18.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) {
+            CadenceIcon(icon, size = 18.dp, tint = gradients.hero.last())
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(
+            text,
+            style = MaterialTheme.typography.labelLarge,
+            color = gradients.hero.last(),
+        )
     }
 }
 
@@ -165,11 +249,19 @@ fun EmptyState(
             .padding(vertical = 28.dp, horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        CadenceIcon(
-            icon,
-            size = 36.dp,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Box(
+            Modifier
+                .size(62.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            CadenceIcon(
+                icon,
+                size = 28.dp,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
         Spacer(Modifier.size(14.dp))
         Text(
             title,
@@ -235,10 +327,16 @@ fun PrimaryButton(
     icon: CadenceIcon? = null,
     enabled: Boolean = true,
 ) {
+    val gradients = CadenceTheme.gradients
     val background = if (enabled) {
-        MaterialTheme.colorScheme.primary
+        Brush.horizontalGradient(gradients.primaryButton)
     } else {
-        MaterialTheme.colorScheme.outlineVariant
+        Brush.horizontalGradient(
+            listOf(
+                MaterialTheme.colorScheme.outlineVariant,
+                MaterialTheme.colorScheme.outlineVariant,
+            ),
+        )
     }
     val foreground = if (enabled) {
         MaterialTheme.colorScheme.onPrimary
@@ -248,6 +346,7 @@ fun PrimaryButton(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .shadow(if (enabled) 6.dp else 0.dp, MaterialTheme.shapes.small, clip = false)
             .clip(MaterialTheme.shapes.small)
             .background(background)
             .clickable(enabled = enabled, onClick = onClick)
@@ -326,13 +425,25 @@ fun StepButton(
     }
     Box(
         modifier = modifier
-            .size(size)
+            .minimumInteractiveComponentSize()
             .clip(CircleShape)
-            .background(background)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        CadenceIcon(icon, size = size * 0.42f, tint = foreground, contentDescription = contentDescription)
+        Box(
+            Modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(background),
+            contentAlignment = Alignment.Center,
+        ) {
+            CadenceIcon(
+                icon,
+                size = size * 0.42f,
+                tint = foreground,
+                contentDescription = contentDescription,
+            )
+        }
     }
 }
 
@@ -358,16 +469,24 @@ fun FilterChip(
     }
     Box(
         modifier = modifier
+            .minimumInteractiveComponentSize()
             .clip(CircleShape)
-            .background(background)
-            .border(
-                BorderStroke(1.dp, if (selected) background else MaterialTheme.colorScheme.outline),
-                CircleShape,
-            )
             .selectable(selected = selected, role = Role.Button, onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 9.dp),
+            .padding(vertical = 4.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = foreground)
+        Box(
+            Modifier
+                .clip(CircleShape)
+                .background(background)
+                .border(
+                    BorderStroke(1.dp, if (selected) background else MaterialTheme.colorScheme.outline),
+                    CircleShape,
+                )
+                .padding(horizontal = 14.dp, vertical = 9.dp),
+        ) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = foreground)
+        }
     }
 }
 

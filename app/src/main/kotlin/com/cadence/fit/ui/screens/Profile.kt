@@ -68,7 +68,8 @@ fun ProfileScreen(
     val profile = state.profile
     val body = state.bodyProfile
     val unit = state.settings.weightUnit
-    val now = viewModel.nowMs()
+    val today = viewModel.today()
+    val now = remember(state, today) { viewModel.nowMs() }
     val summary = remember(state.sessions, now, profile.daysPerWeek) {
         ChartData.summary(state.sessions, now, profile.daysPerWeek)
     }

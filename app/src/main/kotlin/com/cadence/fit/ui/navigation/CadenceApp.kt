@@ -1,7 +1,9 @@
 package com.cadence.fit.ui.navigation
 
 import androidx.compose.foundation.background
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,11 +11,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -23,6 +28,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -34,7 +41,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.cadence.fit.ui.CadenceViewModel
 import com.cadence.fit.ui.components.CadenceIcon
-import com.cadence.fit.ui.components.CadenceProgressBar
 import com.cadence.fit.ui.screens.BodyMapScreen
 import com.cadence.fit.ui.screens.CoachProfileScreen
 import com.cadence.fit.ui.screens.CoachesScreen
@@ -55,6 +61,8 @@ import com.cadence.fit.ui.screens.ProfileScreen
 import com.cadence.fit.ui.screens.SettingsScreen
 import com.cadence.fit.ui.screens.SleepScreen
 import com.cadence.fit.ui.screens.SplitsScreen
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 object Routes {
     const val ONBOARDING = "onboarding"
@@ -108,7 +116,12 @@ private val bottomDestinations = listOf(
 
 @Composable
 fun CadenceApp(viewModel: CadenceViewModel) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    // Only the loading flag is read here. Collecting the whole state at the root
+    // re-composed every screen on every logged set; each screen already reads
+    // exactly the state it needs.
+    val loaded by remember(viewModel) {
+        viewModel.state.map { it.loaded }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = viewModel.state.value.loaded)
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -119,7 +132,7 @@ fun CadenceApp(viewModel: CadenceViewModel) {
         viewModel.dismissMessage(message.id)
     }
 
-    if (!state.loaded) {
+    if (!loaded) {
         LoadingScreen()
         return
     }
@@ -129,16 +142,32 @@ fun CadenceApp(viewModel: CadenceViewModel) {
     val currentRoute = backStackEntry?.destination?.route?.substringBefore('?')
     val showsBottomBar = bottomDestinations.any { it.route == currentRoute }
 
-    val startDestination = remember { if (state.profile.onboardingComplete) Routes.HOME else Routes.ONBOARDING }
+    val startDestination = remember {
+        if (viewModel.state.value.profile.onboardingComplete) Routes.HOME else Routes.ONBOARDING
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            if (showsBottomBar) {
+                CadenceBottomBar(
+                    currentRoute = currentRoute,
+                    onNavigate = { route ->
+                        navController.navigate(route) {
+                            popUpTo(Routes.HOME) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
+            }
+        },
     ) { innerPadding ->
         Box(
             Modifier
                 .fillMaxSize()
-                .padding(top = innerPadding.calculateTopPadding()),
+                .padding(innerPadding),
         ) {
             NavHost(
                 navController = navController,
@@ -147,8 +176,8 @@ fun CadenceApp(viewModel: CadenceViewModel) {
             ) {
                 composable(Routes.ONBOARDING) {
                     OnboardingScreen(
-                        initialProfile = state.profile,
-                        initialUnit = state.settings.weightUnit,
+                        initialProfile = viewModel.state.value.profile,
+                        initialUnit = viewModel.state.value.settings.weightUnit,
                         onComplete = { profile, unit ->
                             viewModel.finishOnboarding(profile, unit)
                             navController.navigate(Routes.HOME) {
@@ -165,7 +194,11 @@ fun CadenceApp(viewModel: CadenceViewModel) {
                             viewModel.startSession(routineId)
                         },
                         onOpenSession = { sessionId -> navController.navigate(Routes.logger(sessionId)) },
-                        onOpenPlan = { navController.navigate(Routes.PLAN) },
+                        onOpenProgress = {
+                            navController.navigate(Routes.PROGRESS) {
+                                launchSingleTop = true
+                            }
+                        },
                         onOpenSleep = { navController.navigate(Routes.SLEEP) },
                         onOpenLibrary = { navController.navigate(Routes.LIBRARY) },
                         onBuildPlan = { navController.navigate(Routes.ONBOARDING) },
@@ -327,6 +360,8 @@ fun CadenceApp(viewModel: CadenceViewModel) {
                         onOpenHistory = { navController.navigate(Routes.history()) },
                         onOpenBodyMap = { navController.navigate(Routes.BODY_MAP) },
                         onOpenWeekHistory = { epochDay -> navController.navigate(Routes.history(epochDay)) },
+                        onOpenProfile = { navController.navigate(Routes.PROFILE) },
+                        onOpenLibrary = { navController.navigate(Routes.LIBRARY) },
                     )
                 }
 
@@ -373,19 +408,6 @@ fun CadenceApp(viewModel: CadenceViewModel) {
                 }
             }
 
-            if (showsBottomBar) {
-                CadenceBottomBar(
-                    currentRoute = currentRoute,
-                    onNavigate = { route ->
-                        navController.navigate(route) {
-                            popUpTo(Routes.HOME) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                )
-            }
         }
     }
 }
@@ -396,47 +418,63 @@ private fun CadenceBottomBar(
     onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
+    Box(
         modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface),
+            .background(MaterialTheme.colorScheme.background)
+            .navigationBarsPadding()
+            .padding(horizontal = 14.dp, vertical = 6.dp),
     ) {
-        HorizontalDivider(
-            thickness = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant,
-        )
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+            shadowElevation = 8.dp,
         ) {
-            bottomDestinations.forEach { destination ->
-                val selected = currentRoute == destination.route
-                val tint = if (selected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                }
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable(role = Role.Tab) { onNavigate(destination.route) }
-                        .padding(vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    CadenceIcon(
-                        destination.icon,
-                        size = 22.dp,
-                        contentDescription = destination.label,
-                        tint = tint,
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                bottomDestinations.forEach { destination ->
+                    val selected = currentRoute == destination.route
+                    val tint = if (selected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    val background by animateColorAsState(
+                        targetValue = if (selected) {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
+                        } else {
+                            Color.Transparent
+                        },
+                        label = "navBackground",
                     )
-                    Spacer(Modifier.size(4.dp))
-                    Text(
-                        destination.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = tint,
-                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(background)
+                            .clickable(role = Role.Tab) { onNavigate(destination.route) }
+                            .padding(vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        CadenceIcon(
+                            destination.icon,
+                            size = 21.dp,
+                            contentDescription = destination.label,
+                            tint = tint,
+                        )
+                        Spacer(Modifier.size(3.dp))
+                        Text(
+                            destination.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = tint,
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
         }
@@ -458,9 +496,16 @@ private fun LoadingScreen() {
                 tint = MaterialTheme.colorScheme.primary,
             )
             Spacer(Modifier.size(18.dp))
-            CadenceProgressBar(
-                fraction = 0.4f,
-                modifier = Modifier.fillMaxWidth(0.35f),
+            CircularProgressIndicator(
+                modifier = Modifier.size(22.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.size(14.dp))
+            Text(
+                "Loading your training",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
