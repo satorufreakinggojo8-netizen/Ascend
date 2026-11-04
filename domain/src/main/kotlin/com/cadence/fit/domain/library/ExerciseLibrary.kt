@@ -17,6 +17,7 @@ object ExerciseLibrary : ExerciseCatalog {
     override val all: List<Exercise> =
         (pushExercises + pullExercises + legExercises + coreArmsConditioningExercises)
             .plus(machineAndCableExercises)
+            .plus(gymVariationExercises)
             .sortedBy { it.name }
 
     private val index: Map<String, Exercise> = all.associateBy { it.id }

@@ -60,7 +60,7 @@ private val FRONT_REGIONS = listOf(
         MuscleGroup.SHOULDERS,
         bothSides(
             points(
-                30f, 38f, 37f, 39f, 39f, 47f, 35f, 53f, 29f, 50f, 26f, 43f,
+                28f, 36f, 35f, 35f, 40f, 40f, 39f, 47f, 34f, 51f, 28f, 47f, 26f, 40f,
             ),
         ),
     ),
@@ -68,7 +68,7 @@ private val FRONT_REGIONS = listOf(
         MuscleGroup.CHEST,
         bothSides(
             points(
-                34f, 44f, 41f, 43f, 48f, 45f, 48f, 53f, 44f, 59f, 37f, 55f, 33f, 49f,
+                34f, 41f, 42f, 40f, 49f, 42f, 49f, 50f, 45f, 56f, 37f, 53f, 33f, 47f,
             ),
         ),
     ),
@@ -76,7 +76,7 @@ private val FRONT_REGIONS = listOf(
         MuscleGroup.BICEPS,
         bothSides(
             points(
-                26f, 57f, 30f, 58f, 29f, 69f, 25f, 75f, 22f, 69f, 22f, 62f,
+                26f, 52f, 31f, 53f, 31f, 64f, 27f, 72f, 23f, 66f, 22f, 58f,
             ),
         ),
     ),
@@ -84,31 +84,46 @@ private val FRONT_REGIONS = listOf(
         MuscleGroup.FOREARMS,
         bothSides(
             points(
-                20f, 78f, 24f, 80f, 21f, 99f, 18f, 108f, 15f, 99f, 15f, 86f,
+                21f, 74f, 26f, 76f, 23f, 96f, 19f, 106f, 16f, 96f, 16f, 84f,
             ),
         ),
     ),
+    // Six blocks and a lower panel, so the middle reads as a trained abdomen
+    // rather than one long slab.
     Region(
         MuscleGroup.ABS,
         listOf(
-            points(
-                45f, 59f, 55f, 59f, 56f, 78f, 54f, 97f, 50f, 103f, 46f, 97f, 44f, 78f,
-            ),
+            points(45f, 53f, 49.2f, 53f, 49.2f, 62f, 45f, 62f),
+            points(50.8f, 53f, 55f, 53f, 55f, 62f, 50.8f, 62f),
+            points(45f, 63.5f, 49.2f, 63.5f, 49.2f, 71.5f, 45f, 71.5f),
+            points(50.8f, 63.5f, 55f, 63.5f, 55f, 71.5f, 50.8f, 71.5f),
+            points(45f, 73f, 49.2f, 73f, 49.2f, 80f, 45f, 80f),
+            points(50.8f, 73f, 55f, 73f, 55f, 80f, 50.8f, 80f),
+            points(45.5f, 81.5f, 54.5f, 81.5f, 53.5f, 90f, 46.5f, 90f),
         ),
     ),
     Region(
         MuscleGroup.OBLIQUES,
         bothSides(
             points(
-                38f, 61f, 44f, 64f, 45f, 92f, 42f, 101f, 37f, 90f, 36f, 74f,
+                39f, 54f, 44f, 57f, 45f, 82f, 42f, 93f, 37f, 82f, 36f, 66f,
             ),
         ),
     ),
     Region(
         MuscleGroup.QUADS,
         bothSides(
+            points(38f, 113f, 48f, 116f, 47f, 140f, 43f, 152f, 37f, 150f, 35f, 132f),
+        ) + bothSides(
+            // Vastus medialis: the teardrop above the knee.
+            points(33f, 136f, 38f, 134f, 39f, 146f, 37f, 154f, 33f, 150f, 31.5f, 143f),
+        ),
+    ),
+    Region(
+        MuscleGroup.CALVES,
+        bothSides(
             points(
-                39f, 118f, 50f, 121f, 49f, 144f, 45f, 156f, 39f, 154f, 34f, 139f,
+                39f, 157f, 45f, 157f, 44f, 173f, 41f, 182f, 38f, 174f, 37f, 166f,
             ),
         ),
     ),
@@ -119,7 +134,7 @@ private val BACK_REGIONS = listOf(
         MuscleGroup.SHOULDERS,
         bothSides(
             points(
-                30f, 40f, 37f, 40f, 39f, 48f, 35f, 54f, 29f, 50f, 26f, 44f,
+                28f, 35f, 35f, 34f, 40f, 39f, 39f, 47f, 34f, 51f, 28f, 47f, 26f, 39f,
             ),
         ),
     ),
@@ -127,7 +142,7 @@ private val BACK_REGIONS = listOf(
         MuscleGroup.UPPER_BACK,
         listOf(
             points(
-                43f, 45f, 57f, 45f, 58f, 61f, 54f, 72f, 46f, 72f, 42f, 61f,
+                42f, 42f, 58f, 42f, 58f, 57f, 54f, 69f, 46f, 69f, 42f, 57f,
             ),
         ),
     ),
@@ -135,7 +150,7 @@ private val BACK_REGIONS = listOf(
         MuscleGroup.LATS,
         bothSides(
             points(
-                35f, 51f, 43f, 57f, 44f, 76f, 40f, 88f, 34f, 79f, 33f, 64f,
+                34f, 47f, 42f, 55f, 43f, 77f, 38f, 90f, 32f, 79f, 31f, 61f,
             ),
         ),
     ),
@@ -145,7 +160,7 @@ private val BACK_REGIONS = listOf(
         MuscleGroup.TRAPS,
         listOf(
             points(
-                46f, 27f, 54f, 27f, 59f, 41f, 55f, 52f, 50f, 62f, 45f, 52f, 41f, 41f,
+                45f, 24f, 55f, 24f, 59f, 36f, 56f, 49f, 50f, 60f, 44f, 49f, 41f, 36f,
             ),
         ),
     ),
@@ -153,7 +168,7 @@ private val BACK_REGIONS = listOf(
         MuscleGroup.LOWER_BACK,
         listOf(
             points(
-                46f, 78f, 54f, 78f, 53f, 100f, 47f, 100f,
+                46f, 75f, 54f, 75f, 53f, 97f, 47f, 97f,
             ),
         ),
     ),
@@ -161,7 +176,7 @@ private val BACK_REGIONS = listOf(
         MuscleGroup.TRICEPS,
         bothSides(
             points(
-                25f, 57f, 29f, 57f, 28f, 69f, 25f, 76f, 21f, 69f, 21f, 61f,
+                25f, 52f, 30f, 53f, 30f, 64f, 25f, 73f, 21f, 66f, 20f, 58f,
             ),
         ),
     ),
@@ -169,7 +184,7 @@ private val BACK_REGIONS = listOf(
         MuscleGroup.FOREARMS,
         bothSides(
             points(
-                20f, 78f, 24f, 80f, 21f, 99f, 18f, 108f, 15f, 99f, 15f, 86f,
+                21f, 74f, 26f, 76f, 23f, 96f, 19f, 106f, 16f, 96f, 16f, 84f,
             ),
         ),
     ),
@@ -177,7 +192,7 @@ private val BACK_REGIONS = listOf(
         MuscleGroup.GLUTES,
         bothSides(
             points(
-                37f, 112f, 46f, 109f, 50f, 119f, 47f, 131f, 39f, 132f, 34f, 123f,
+                36f, 107f, 46f, 104f, 50f, 115f, 46f, 128f, 37f, 129f, 33f, 117f,
             ),
         ),
     ),
@@ -185,7 +200,7 @@ private val BACK_REGIONS = listOf(
         MuscleGroup.HAMSTRINGS,
         bothSides(
             points(
-                40f, 130f, 48f, 131f, 47f, 153f, 43f, 162f, 38f, 152f, 37f, 140f,
+                38f, 127f, 47f, 128f, 46f, 149f, 42f, 160f, 37f, 150f, 35f, 138f,
             ),
         ),
     ),
@@ -193,7 +208,7 @@ private val BACK_REGIONS = listOf(
         MuscleGroup.CALVES,
         bothSides(
             points(
-                40f, 160f, 46f, 160f, 45f, 178f, 42f, 188f, 38f, 178f, 37f, 168f,
+                38f, 156f, 45f, 156f, 44f, 174f, 42f, 185f, 37f, 175f, 36f, 165f,
             ),
         ),
     ),
@@ -466,11 +481,14 @@ private fun contains(shape: List<Offset>, point: Offset): Boolean {
  * the figure reads as a body rather than a collection of blobs.
  */
 private fun DrawScope.drawAnatomyBase(fill: Color, outline: Color) {
+    // Wide at the shoulders, tapered at the waist, so the figure reads as a
+    // trained physique rather than a neutral mannequin.
     val torso = smoothPath(
         points(
-            45f, 28f, 55f, 28f, 64f, 33f, 69f, 42f, 65f, 59f, 60f, 82f,
-            63f, 105f, 57f, 121f, 50f, 127f, 43f, 121f, 37f, 105f, 40f, 82f,
-            35f, 59f, 31f, 42f, 36f, 33f,
+            45f, 25f, 55f, 25f, 62f, 29f, 69f, 35f, 71f, 43f, 66f, 52f,
+            60f, 63f, 58f, 78f, 57f, 94f, 60f, 106f, 55f, 117f, 50f, 121f,
+            45f, 117f, 40f, 106f, 43f, 94f, 42f, 78f, 40f, 63f, 34f, 52f,
+            29f, 43f, 31f, 35f, 38f, 29f,
         ),
     )
     drawPath(
@@ -485,44 +503,49 @@ private fun DrawScope.drawAnatomyBase(fill: Color, outline: Color) {
     // One centred seam works on both sides: linea alba in front, spine behind.
     drawLine(
         color = outline.copy(alpha = 0.30f),
-        start = Offset(50f, 34f),
-        end = Offset(50f, 103f),
+        start = Offset(50f, 32f),
+        end = Offset(50f, 100f),
         strokeWidth = 0.45f,
     )
     // Soft creases keep the limbs from reading as plain capsules.
-    drawLine(outline.copy(alpha = 0.22f), Offset(22f, 73f), Offset(28f, 76f), strokeWidth = 0.4f)
-    drawLine(outline.copy(alpha = 0.22f), Offset(72f, 76f), Offset(78f, 73f), strokeWidth = 0.4f)
-    drawLine(outline.copy(alpha = 0.20f), Offset(38f, 150f), Offset(46f, 151f), strokeWidth = 0.4f)
-    drawLine(outline.copy(alpha = 0.20f), Offset(54f, 151f), Offset(62f, 150f), strokeWidth = 0.4f)
+    drawLine(outline.copy(alpha = 0.22f), Offset(23f, 70f), Offset(29f, 74f), strokeWidth = 0.4f)
+    drawLine(outline.copy(alpha = 0.22f), Offset(71f, 74f), Offset(77f, 70f), strokeWidth = 0.4f)
+    drawLine(outline.copy(alpha = 0.20f), Offset(37f, 148f), Offset(47f, 149f), strokeWidth = 0.4f)
+    drawLine(outline.copy(alpha = 0.20f), Offset(53f, 149f), Offset(63f, 148f), strokeWidth = 0.4f)
+    // Clavicle hollow and the line under each pectoral.
+    drawLine(outline.copy(alpha = 0.18f), Offset(38f, 40f), Offset(48f, 41f), strokeWidth = 0.4f)
+    drawLine(outline.copy(alpha = 0.18f), Offset(52f, 41f), Offset(62f, 40f), strokeWidth = 0.4f)
+    drawLine(outline.copy(alpha = 0.18f), Offset(37f, 57f), Offset(49f, 55f), strokeWidth = 0.4f)
+    drawLine(outline.copy(alpha = 0.18f), Offset(51f, 55f), Offset(63f, 57f), strokeWidth = 0.4f)
 
     // Upper arms, forearms and hands.
-    drawCapsule(Offset(33f, 38f), Offset(25f, 70f), 8.5f, fill, outline)
-    drawCapsule(Offset(25f, 70f), Offset(18f, 106f), 6.6f, fill, outline)
-    drawCapsule(Offset(67f, 38f), Offset(75f, 70f), 8.5f, fill, outline)
-    drawCapsule(Offset(75f, 70f), Offset(82f, 106f), 6.6f, fill, outline)
-    drawCircle(fill, radius = 3.6f, center = Offset(17f, 111f))
-    drawCircle(fill, radius = 3.6f, center = Offset(83f, 111f))
+    drawCapsule(Offset(33f, 40f), Offset(26f, 70f), 9.0f, fill, outline)
+    drawCapsule(Offset(26f, 70f), Offset(19f, 104f), 7.0f, fill, outline)
+    drawCapsule(Offset(67f, 40f), Offset(74f, 70f), 9.0f, fill, outline)
+    drawCapsule(Offset(74f, 70f), Offset(81f, 104f), 7.0f, fill, outline)
+    drawCircle(fill, radius = 3.8f, center = Offset(18f, 108f))
+    drawCircle(fill, radius = 3.8f, center = Offset(82f, 108f))
 
     // Thighs, calves and feet.
-    drawCapsule(Offset(44f, 120f), Offset(42f, 152f), 8.2f, fill, outline)
-    drawCapsule(Offset(42f, 152f), Offset(39f, 184f), 6.2f, fill, outline)
-    drawCapsule(Offset(56f, 120f), Offset(58f, 152f), 8.2f, fill, outline)
-    drawCapsule(Offset(58f, 152f), Offset(61f, 184f), 6.2f, fill, outline)
-    drawCapsule(Offset(39f, 184f), Offset(35f, 195f), 4.2f, fill, outline)
-    drawCapsule(Offset(61f, 184f), Offset(65f, 195f), 4.2f, fill, outline)
+    drawCapsule(Offset(45f, 118f), Offset(43f, 148f), 9.5f, fill, outline)
+    drawCapsule(Offset(43f, 148f), Offset(40f, 180f), 7.0f, fill, outline)
+    drawCapsule(Offset(55f, 118f), Offset(57f, 148f), 9.5f, fill, outline)
+    drawCapsule(Offset(57f, 148f), Offset(60f, 180f), 7.0f, fill, outline)
+    drawCapsule(Offset(40f, 180f), Offset(36f, 192f), 4.4f, fill, outline)
+    drawCapsule(Offset(60f, 180f), Offset(64f, 192f), 4.4f, fill, outline)
 
     // Neck and head.
-    val neck = smoothPath(points(45f, 24f, 55f, 24f, 56f, 31f, 44f, 31f))
+    val neck = smoothPath(points(45f, 22f, 55f, 22f, 56f, 30f, 44f, 30f))
     drawPath(neck, fill)
     drawOval(
         color = fill,
-        topLeft = Offset(41f, 6f),
-        size = Size(18f, 21f),
+        topLeft = Offset(41.5f, 5f),
+        size = Size(17f, 20f),
     )
     drawOval(
         color = outline,
-        topLeft = Offset(41f, 6f),
-        size = Size(18f, 21f),
+        topLeft = Offset(41.5f, 5f),
+        size = Size(17f, 20f),
         style = Stroke(width = 0.8f),
     )
 }

@@ -362,7 +362,7 @@ object SplitTemplates {
      */
     val personalSixDay: SplitTemplate = SplitTemplate(
         id = "personal-six-day",
-        name = "Personal 6-day",
+        name = "Abhinav's Split",
         tagline = "Shoulders & arms · legs · chest & back, twice",
         summary = "Six training days with Sunday off. Shoulders and arms open the week, " +
             "and chest work is placed on Wednesday and Saturday so Monday stays upper-arm focused.",
