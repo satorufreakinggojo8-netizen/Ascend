@@ -2,6 +2,18 @@ package com.cadence.fit.ui.navigation
 
 import androidx.compose.foundation.background
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -30,9 +42,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -114,6 +128,11 @@ private val bottomDestinations = listOf(
     BottomDestination(Routes.BODY_MAP, "Body", CadenceIcon.Body),
 )
 
+private val tabRoutes: Set<String> = bottomDestinations.map { it.route }.toSet()
+
+private fun NavBackStackEntry.isTab(): Boolean =
+    tabRoutes.contains(destination.route?.substringBefore('?'))
+
 @Composable
 fun CadenceApp(viewModel: CadenceViewModel) {
     // Only the loading flag is read here. Collecting the whole state at the root
@@ -173,6 +192,28 @@ fun CadenceApp(viewModel: CadenceViewModel) {
                 navController = navController,
                 startDestination = startDestination,
                 modifier = Modifier.fillMaxSize(),
+                // Tab switches cross-fade in place. Pushing a screen slides it in
+                // so the stack has a direction, and popping reverses that.
+                enterTransition = {
+                    if (initialState.isTab() && targetState.isTab()) {
+                        fadeIn(tween(190))
+                    } else {
+                        slideInHorizontally(tween(280), initialOffsetX = { it / 10 }) +
+                            fadeIn(tween(220))
+                    }
+                },
+                exitTransition = {
+                    if (initialState.isTab() && targetState.isTab()) {
+                        fadeOut(tween(120))
+                    } else {
+                        fadeOut(tween(160))
+                    }
+                },
+                popEnterTransition = { fadeIn(tween(200)) },
+                popExitTransition = {
+                    slideOutHorizontally(tween(280), targetOffsetX = { it / 10 }) +
+                        fadeOut(tween(180))
+                },
             ) {
                 composable(Routes.ONBOARDING) {
                     OnboardingScreen(
@@ -461,9 +502,17 @@ private fun CadenceBottomBar(
                             .padding(vertical = 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
+                        val iconScale by animateFloatAsState(
+                            targetValue = if (selected) 1.12f else 1f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessMediumLow,
+                            ),
+                            label = "navIconScale",
+                        )
                         CadenceIcon(
                             destination.icon,
-                            size = 21.dp,
+                            size = 21.dp * iconScale,
                             contentDescription = destination.label,
                             tint = tint,
                         )
@@ -483,6 +532,13 @@ private fun CadenceBottomBar(
 
 @Composable
 private fun LoadingScreen() {
+    val transition = rememberInfiniteTransition(label = "loading")
+    val pulse by transition.animateFloat(
+        initialValue = 0.94f,
+        targetValue = 1.04f,
+        animationSpec = infiniteRepeatable(tween(1200), RepeatMode.Reverse),
+        label = "brandPulse",
+    )
     Box(
         Modifier
             .fillMaxSize()
@@ -490,22 +546,36 @@ private fun LoadingScreen() {
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CadenceIcon(
-                CadenceIcon.Plan,
-                size = 40.dp,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(Modifier.size(18.dp))
-            CircularProgressIndicator(
-                modifier = Modifier.size(22.dp),
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(Modifier.size(14.dp))
+            Box(
+                Modifier
+                    .size(78.dp)
+                    .graphicsLayer {
+                        scaleX = pulse
+                        scaleY = pulse
+                    }
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                CadenceIcon(
+                    CadenceIcon.Plan,
+                    size = 36.dp,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Spacer(Modifier.size(20.dp))
+            Text("Cadence", style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.size(6.dp))
             Text(
                 "Loading your training",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.size(20.dp))
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.primary,
             )
         }
     }

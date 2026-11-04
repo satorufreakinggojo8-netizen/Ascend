@@ -49,6 +49,7 @@ import com.cadence.fit.ui.components.CadenceTopBar
 import com.cadence.fit.ui.components.EmptyState
 import com.cadence.fit.ui.components.HeroButton
 import com.cadence.fit.ui.components.HeroCard
+import com.cadence.fit.ui.components.ScreenPadding
 import com.cadence.fit.ui.components.SectionHeader
 import com.cadence.fit.ui.components.Sparkline
 import com.cadence.fit.domain.model.ScheduleStatus
@@ -118,7 +119,7 @@ fun HomeScreen(
             Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = ScreenPadding.horizontal),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             NextActionCard(
@@ -188,7 +189,7 @@ fun HomeScreen(
                 }
             }
 
-            Spacer(Modifier.size(8.dp))
+            Spacer(Modifier.size(ScreenPadding.bottom))
         }
     }
 }

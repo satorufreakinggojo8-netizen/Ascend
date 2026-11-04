@@ -40,6 +40,7 @@ import com.cadence.fit.ui.components.LineChart
 import com.cadence.fit.ui.components.CadenceProgressBar
 import com.cadence.fit.ui.components.Badge
 import com.cadence.fit.ui.components.SecondaryButton
+import com.cadence.fit.ui.components.ScreenPadding
 import com.cadence.fit.ui.components.SectionHeader
 import com.cadence.fit.ui.components.StatTile
 import com.cadence.fit.ui.components.ThinDivider
@@ -78,7 +79,7 @@ fun ProgressScreen(
             actionDescriptions = listOf("Workout history"),
         )
 
-        Column(Modifier.padding(horizontal = 20.dp)) {
+        Column(Modifier.padding(horizontal = ScreenPadding.horizontal)) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ChartWindow.entries.forEach { option ->
                     FilterChip(
@@ -98,7 +99,7 @@ fun ProgressScreen(
             Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 14.dp),
+                .padding(horizontal = ScreenPadding.horizontal, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             if (model.summary.totalSessions == 0) {
@@ -114,13 +115,7 @@ fun ProgressScreen(
                     SectionHeader(
                         title = "Training volume",
                         subtitle = "Total working volume per week",
-                        trailing = {
-                            CadenceIcon(
-                                CadenceIcon.TrendUp,
-                                size = 18.dp,
-                                tint = CadenceTheme.tones.success,
-                            )
-                        },
+                        icon = CadenceIcon.TrendUp,
                     )
                     Spacer(Modifier.size(14.dp))
                     val bestWeek = model.volumeByWeek.indices
@@ -178,6 +173,7 @@ fun ProgressScreen(
                     SectionHeader(
                         title = "Consistency",
                         subtitle = "Sessions per week against your ${model.targetSessionsPerWeek}-day target",
+                        icon = CadenceIcon.Calendar,
                     )
                     Spacer(Modifier.size(14.dp))
                     val averageSessions = model.consistencyByWeek
@@ -225,7 +221,11 @@ fun ProgressScreen(
                 }
 
                 CadenceCard {
-                    SectionHeader(title = "Summary", subtitle = "Last 28 days")
+                    SectionHeader(
+                        title = "Summary",
+                        subtitle = "Last 28 days",
+                        icon = CadenceIcon.Check,
+                    )
                     Spacer(Modifier.size(14.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                         StatTile(
@@ -274,6 +274,7 @@ fun ProgressScreen(
                         SectionHeader(
                             title = "Recent records",
                             subtitle = "Set in the last 28 days",
+                            icon = CadenceIcon.Trophy,
                         )
                         Spacer(Modifier.size(10.dp))
                         model.recentRecords.take(8).forEach { record ->
@@ -347,7 +348,7 @@ fun ProgressScreen(
                     )
                 }
             }
-            Spacer(Modifier.size(16.dp))
+            Spacer(Modifier.size(ScreenPadding.bottom))
         }
     }
 }
@@ -509,6 +510,7 @@ private fun MuscleStrengthCard(
         SectionHeader(
             title = "Strength by muscle",
             subtitle = "Best logged set per movement · last 4 weeks",
+            icon = CadenceIcon.TrendUp,
         )
         Spacer(Modifier.size(10.dp))
         if (rows.isEmpty()) {

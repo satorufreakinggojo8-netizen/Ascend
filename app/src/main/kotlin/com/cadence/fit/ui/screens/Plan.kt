@@ -31,6 +31,7 @@ import com.cadence.fit.ui.components.EmptyState
 import com.cadence.fit.ui.components.InfoNote
 import com.cadence.fit.ui.components.PrimaryButton
 import com.cadence.fit.ui.components.SecondaryButton
+import com.cadence.fit.ui.components.ScreenPadding
 import com.cadence.fit.ui.components.SectionHeader
 import com.cadence.fit.ui.components.ThinDivider
 
@@ -78,7 +79,7 @@ fun PlanScreen(
             Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = ScreenPadding.horizontal),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             if (state.routines.isEmpty()) {
@@ -126,7 +127,7 @@ fun PlanScreen(
                     icon = CadenceIcon.Undo,
                     onClick = { viewModel.regeneratePlan() },
                 )
-                Spacer(Modifier.size(8.dp))
+                Spacer(Modifier.size(ScreenPadding.bottom))
             }
         }
     }

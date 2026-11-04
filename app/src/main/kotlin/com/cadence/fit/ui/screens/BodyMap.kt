@@ -43,6 +43,7 @@ import com.cadence.fit.ui.components.CadenceTopBar
 import com.cadence.fit.ui.components.EmptyState
 import com.cadence.fit.ui.components.FilterChip
 import com.cadence.fit.ui.components.InfoNote
+import com.cadence.fit.ui.components.ScreenPadding
 import com.cadence.fit.ui.components.SectionHeader
 import com.cadence.fit.ui.components.Sparkline
 import com.cadence.fit.ui.components.StatTile
@@ -92,7 +93,7 @@ fun BodyMapScreen(viewModel: CadenceViewModel) {
             subtitle = "Measured from your logged sets",
         )
 
-        Column(Modifier.padding(horizontal = 20.dp)) {
+        Column(Modifier.padding(horizontal = ScreenPadding.horizontal)) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ranges.forEach { (option, label) ->
                     FilterChip(
@@ -111,7 +112,7 @@ fun BodyMapScreen(viewModel: CadenceViewModel) {
             Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 14.dp),
+                .padding(horizontal = ScreenPadding.horizontal, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             if (window.sessionsCounted == 0) {
@@ -154,6 +155,7 @@ fun BodyMapScreen(viewModel: CadenceViewModel) {
                         subtitle = ranking.firstOrNull()?.let { (muscle, _) ->
                             "Most volume: ${muscle.displayName}"
                         } ?: "Tap a muscle group for its lifts",
+                        icon = CadenceIcon.Body,
                     )
                     Spacer(Modifier.size(10.dp))
                     Row(
@@ -325,7 +327,7 @@ fun BodyMapScreen(viewModel: CadenceViewModel) {
                     "view cannot tell how recovered a muscle is and does not diagnose injuries.",
                 icon = CadenceIcon.Info,
             )
-            Spacer(Modifier.size(16.dp))
+            Spacer(Modifier.size(ScreenPadding.bottom))
         }
     }
 }
