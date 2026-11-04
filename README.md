@@ -41,7 +41,7 @@ Rules that keep it modular:
 | Today's workout, one primary action, week strip, small summary | `ui/screens/Home.kt` |
 | Training calendar: plan a week, reschedule, skip, link a session | `ui/screens/Schedule.kt`, `domain/schedule/SchedulePlanner.kt` |
 | Plan templates (strength, muscle, general fitness, home) and active routine | `ui/screens/Plan.kt`, `domain/plan/PlanBuilder.kt` |
-| Weekly split library, including the featured six-day split, with a preview you can edit before applying | `ui/screens/Splits.kt`, `domain/plan/SplitTemplates.kt` |
+| Weekly split library, including the featured personal six-day split with A/B variations and explicit requested lifts, with a preview you can edit before applying | `ui/screens/Splits.kt`, `domain/plan/SplitTemplates.kt` |
 | Profile: optional age/height/weight, weight trend, current plan, export/delete coverage | `ui/screens/Profile.kt`, `domain/model/BodyProfile.kt` |
 | Nutrition-app area that honestly says "Not connected yet" plus the future boundary | `ui/screens/Nutrition.kt`, `docs/nutrition-integration.md` |
 | Create and edit routines, supersets, rep ranges, exercise swaps | `ui/screens/RoutineEditor.kt`, `domain/library/Substitutions.kt` |
@@ -53,7 +53,7 @@ Rules that keep it modular:
 | Plateau and deload guidance | same engine, surfaced on Progress |
 | Charts: strength, consistency, volume, with windows and tap-through to the week in history | `ui/components/Charts.kt`, `domain/insight/ChartData.kt`, `ui/screens/Progress.kt` |
 | Muscle balance insight with an honest measured/estimate split | `ui/screens/Progress.kt`, `domain/math/WorkoutMath.kt` |
-| Anatomical front/back muscle map with a text scale, hatch key and screen-reader summary | `ui/art/MuscleBodyMap.kt`, `ui/screens/BodyMap.kt` |
+| Anatomical front/back muscle map with a text scale, hatch key and screen-reader summary, plus per-movement best sets, dates and session trends | `ui/art/MuscleBodyMap.kt`, `ui/screens/BodyMap.kt` |
 | Optional level tiers with an explained benchmark you can hide | `domain/insight/LevelAssessor.kt` |
 | Coaches: minimal ambassador landing page, David Laid's profile, verified facts only, state-driven portraits, guidance from logged data | `ui/screens/Coaches.kt`, `domain/coach/*`, `docs/coach-assets.md` |
 | Optional sleep context | `ui/screens/Sleep.kt`, `domain/sleep/SleepRepository.kt`, `docs/health-connect-nocta.md` |
@@ -99,7 +99,7 @@ release install.
 ## Tests
 
 ```bash
-./gradlew test          # 400 tests: 329 domain, 24 data, 15 integrations, 32 app
+./gradlew test
 ```
 
 They cover the parts that are easy to get subtly wrong:
@@ -161,7 +161,7 @@ the smallest change Nocta needs if it does not publish yet.
 
 ## What is verified, and what needs a device
 
-Verified here: all 400 unit tests pass, `assembleDebug` produces an installable APK, and
+Verified here: all unit tests pass, `assembleDebug` produces an installable APK, and
 the whole app module compiles against the pinned dependency set. The calendar is covered
 by planner tests (generation, moving, skipping, session linking, midnight boundaries),
 and the home model is tested against a fixed clock and timezone. The database schema is

@@ -163,7 +163,9 @@ internal val legExercises: List<Exercise> = listOf(
         secondaryMuscles = listOf(MuscleGroup.LOWER_BACK),
         equipment = Equipment.BARBELL,
         pattern = MovementPattern.HINGE,
-        difficulty = Difficulty.INTERMEDIATE,
+        // A hinge taught with an empty bar or light dumbbells is a beginner movement;
+        // the routine note tells the user to start light and add load slowly.
+        difficulty = Difficulty.BEGINNER,
         instructions = listOf(
             "Stand tall with the bar at your thighs and feet hip width apart.",
             "Keep a soft bend in your knees and push your hips straight back.",

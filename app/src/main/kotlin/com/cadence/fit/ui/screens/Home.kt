@@ -34,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cadence.fit.domain.insight.RecoveryContext
-import com.cadence.fit.domain.rank.StrengthRankAssessment
 import com.cadence.fit.domain.time.TimeRanges
 import com.cadence.fit.domain.units.Durations
 import com.cadence.fit.domain.units.Weights
@@ -50,7 +49,6 @@ import com.cadence.fit.ui.components.CadenceTopBar
 import com.cadence.fit.ui.components.EmptyState
 import com.cadence.fit.ui.components.HeroButton
 import com.cadence.fit.ui.components.HeroCard
-import com.cadence.fit.ui.components.RankCrest
 import com.cadence.fit.ui.components.SectionHeader
 import com.cadence.fit.ui.components.Sparkline
 import com.cadence.fit.domain.model.ScheduleStatus
@@ -140,8 +138,6 @@ fun HomeScreen(
             )
 
             WeekStripCard(model, onOpenSchedule)
-
-            HomeRankCard(model.rank, onOpenProgress)
 
             if (model.summary.totalSessions == 0) {
                 EmptyState(
@@ -405,40 +401,6 @@ private fun ProgressSummaryCard(
         if (model.volumeTrend.any { it > 0f }) {
             Spacer(Modifier.size(16.dp))
             Sparkline(values = model.volumeTrend)
-        }
-    }
-}
-
-@Composable
-private fun HomeRankCard(assessment: StrengthRankAssessment, onOpenProgress: () -> Unit) {
-    val rank = assessment.rank
-    CadenceCard(onClick = onOpenProgress) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            RankCrest(rank, size = 46.dp)
-            Spacer(Modifier.size(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    "YOUR RANK",
-                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.4.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(rank?.displayName ?: "Unranked", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    when {
-                        rank != null -> "${assessment.anchorCount} of ${assessment.totalAnchors} " +
-                            "anchors · next: ${assessment.nextRank?.displayName ?: "top rank"}"
-                        assessment.bodyweightKg == null -> "Add bodyweight to unlock"
-                        else -> "Log a barbell squat, bench, deadlift or press"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            CadenceIcon(
-                CadenceIcon.ChevronRight,
-                size = 18.dp,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

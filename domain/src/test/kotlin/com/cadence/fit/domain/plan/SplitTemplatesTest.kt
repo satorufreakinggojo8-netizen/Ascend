@@ -13,6 +13,7 @@ import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -56,12 +57,12 @@ class SplitTemplatesTest {
         val split = SplitTemplates.personalSixDay
         val byDay = split.days.associate { it.dayOfWeek to it }
 
-        assertEquals("Shoulders & arms", byDay.getValue(DayOfWeek.MONDAY).title)
-        assertEquals("Legs", byDay.getValue(DayOfWeek.TUESDAY).title)
-        assertEquals("Chest & back", byDay.getValue(DayOfWeek.WEDNESDAY).title)
-        assertEquals("Shoulders & arms", byDay.getValue(DayOfWeek.THURSDAY).title)
-        assertEquals("Legs", byDay.getValue(DayOfWeek.FRIDAY).title)
-        assertEquals("Chest & back", byDay.getValue(DayOfWeek.SATURDAY).title)
+        assertTrue(byDay.getValue(DayOfWeek.MONDAY).title.startsWith("Shoulders & arms"))
+        assertTrue(byDay.getValue(DayOfWeek.TUESDAY).title.startsWith("Legs"))
+        assertTrue(byDay.getValue(DayOfWeek.WEDNESDAY).title.startsWith("Chest & back"))
+        assertTrue(byDay.getValue(DayOfWeek.THURSDAY).title.startsWith("Shoulders & arms"))
+        assertTrue(byDay.getValue(DayOfWeek.FRIDAY).title.startsWith("Legs"))
+        assertTrue(byDay.getValue(DayOfWeek.SATURDAY).title.startsWith("Chest & back"))
         assertTrue(byDay.getValue(DayOfWeek.SUNDAY).isRest)
     }
 
@@ -82,12 +83,12 @@ class SplitTemplatesTest {
         assertEquals(6, result.routines.map { it.id }.distinct().size)
         assertEquals(
             listOf(
-                "Shoulders & arms",
-                "Legs",
-                "Chest & back",
-                "Shoulders & arms",
-                "Legs",
-                "Chest & back",
+                "Shoulders & arms A",
+                "Legs A",
+                "Chest & back A",
+                "Shoulders & arms B",
+                "Legs B",
+                "Chest & back B",
             ),
             result.routines.map { it.name },
         )
@@ -113,8 +114,8 @@ class SplitTemplatesTest {
         )
         assertFalse(dates.contains(weekStart.plusDays(6)))
         assertEquals(ScheduleStatus.PLANNED, result.plannedSlots.first().status)
-        assertEquals("Shoulders & arms", result.plannedSlots.first().routineName)
-        assertEquals("Chest & back", result.plannedSlots[2].routineName)
+        assertEquals("Shoulders & arms A", result.plannedSlots.first().routineName)
+        assertEquals("Chest & back A", result.plannedSlots[2].routineName)
     }
 
     @Test
@@ -122,7 +123,7 @@ class SplitTemplatesTest {
         val result = apply(weeks = 2)
         assertEquals(12, result.plannedSlots.size)
         assertEquals(weekStart.plusWeeks(1), result.plannedSlots[6].date)
-        assertEquals("Shoulders & arms", result.plannedSlots[6].routineName)
+        assertEquals("Shoulders & arms A", result.plannedSlots[6].routineName)
     }
 
     @Test
@@ -162,7 +163,7 @@ class SplitTemplatesTest {
     @Test
     fun `a blank rename keeps the original title`() {
         val edited = SplitTemplates.personalSixDay.renamed(DayOfWeek.TUESDAY, "   ")
-        assertEquals("Legs", edited.day(DayOfWeek.TUESDAY)!!.title)
+        assertEquals("Legs A", edited.day(DayOfWeek.TUESDAY)!!.title)
     }
 
     @Test
@@ -301,7 +302,7 @@ class SplitTemplatesTest {
         val added = later.filter { it.date >= nextWeek && it.date <= nextWeek.plusDays(6) }
         assertEquals(6, added.size)
         assertEquals(nextWeek, added.first().date)
-        assertEquals("Chest & back", added[2].routineName)
+        assertEquals("Chest & back A", added[2].routineName)
         assertFalse(added.any { it.date.dayOfWeek == DayOfWeek.SUNDAY })
     }
 
@@ -350,5 +351,43 @@ class SplitTemplatesTest {
         assertTrue(SplitTemplates.all.first().featured)
         assertEquals(SplitTemplates.personalSixDay, SplitTemplates.byId("personal-six-day"))
         assertNull(SplitTemplates.byId("missing"))
+    }
+
+    @Test
+    fun `the two weekly sessions for each group are different workouts`() {
+        val routines = apply(weeks = 1).routines.associateBy { it.name }
+        fun ids(name: String) = routines.getValue(name).exercises.map { it.exerciseId }
+
+        assertNotEquals(ids("Shoulders & arms A"), ids("Shoulders & arms B"))
+        assertNotEquals(ids("Legs A"), ids("Legs B"))
+        assertNotEquals(ids("Chest & back A"), ids("Chest & back B"))
+    }
+
+    @Test
+    fun `the legs session starts with a warm-up and contains the requested lifts`() {
+        val legs = apply(weeks = 1).routines.first { it.name == "Legs A" }
+        val ids = legs.exercises.map { it.exerciseId }
+
+        assertEquals("treadmill-walk-warmup", ids.first())
+        assertTrue("lying-leg-curl" in ids)
+        assertTrue(ids.any { it == "smith-machine-squat" || it == "pendulum-squat" })
+        assertTrue("romanian-deadlift" in ids)
+        assertTrue("leg-extension" in ids)
+        assertTrue(ids.any { it.contains("calf-raise") })
+        assertEquals(6, legs.exercises.size)
+        assertTrue(legs.exercises.all { it.targetSets in 1..5 && it.repRange.first > 0 })
+    }
+
+    @Test
+    fun `deadlift practice is optional, conservative and carries no load`() {
+        val chestBack = apply(weeks = 1).routines.first { it.name == "Chest & back B" }
+        val deadlift = chestBack.exercises.last()
+
+        assertTrue(deadlift.exerciseId == "trap-bar-deadlift" || deadlift.exerciseId == "cable-pull-through")
+        assertEquals(2, deadlift.targetSets)
+        assertEquals(5..6, deadlift.repRange)
+        assertTrue(deadlift.note.contains("Optional", ignoreCase = true))
+        // Routine slots never store a weight, so no load is prescribed.
+        assertTrue(chestBack.exercises.none { it.note.contains(" kg", ignoreCase = true) })
     }
 }

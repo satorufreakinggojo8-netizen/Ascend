@@ -15,6 +15,12 @@ data class MovementSlot(
     val muscles: Set<MuscleGroup> = emptySet(),
     /** Main lifts get more sets and longer rests than accessories. */
     val main: Boolean = false,
+    /** Ordered, explicit choices for hand-built sessions; unavailable kit is skipped, never substituted silently. */
+    val preferredExerciseIds: List<String> = emptyList(),
+    val targetSets: Int? = null,
+    val repRange: IntRange? = null,
+    val restSeconds: Int? = null,
+    val note: String = "",
 )
 
 /** A named, reusable session shape such as "Shoulders & arms" or "Legs". */

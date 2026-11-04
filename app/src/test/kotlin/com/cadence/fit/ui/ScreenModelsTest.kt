@@ -287,6 +287,33 @@ class ScreenModelsTest {
         assertNull(window.bestLiftByMuscle[MuscleGroup.ABS])
     }
 
+    @Test
+    fun `muscle window keeps each exercise's best set and a session trend`() {
+        val dayA = routine("routine-a", "Full body A")
+        val earlier = completedSession(now - 7 * 86_400_000L, dayA.id, dayA.name).copy(id = "earlier")
+        val latest = completedSession(now, dayA.id, dayA.name).copy(id = "latest")
+        val window = ScreenModels.muscleWindow(
+            state(listOf(dayA), sessions = listOf(earlier, latest)),
+            ExerciseLibrary,
+            days = 28,
+            nowMs = now,
+            zone = zone,
+        )
+
+        val quads = window.exercisesByMuscle.getValue(MuscleGroup.QUADS)
+        assertEquals(1, quads.size)
+        val best = quads.first()
+        assertEquals("goblet-squat", best.exerciseId)
+        assertEquals(24.0, best.bestWeightKg, 1e-6)
+        assertEquals(10, best.bestReps)
+        assertEquals(2, best.sessionCount)
+        assertEquals(2, best.totalSets)
+        assertEquals(2, best.trendKg.size)
+        // Both sessions used the same load, so the trend is flat, not invented.
+        assertEquals(0.0, best.changeKg!!, 1e-6)
+        assertNull(window.exercisesByMuscle[MuscleGroup.ABS])
+    }
+
     // --- Coaches --------------------------------------------------------------
 
     private fun sleepNight(id: String, minutes: Int) = SleepSummary(

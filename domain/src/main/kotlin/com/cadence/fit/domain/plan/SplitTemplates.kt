@@ -102,45 +102,94 @@ object SplitTemplates {
         patterns: Set<MovementPattern>,
         muscles: Set<MuscleGroup> = emptySet(),
         main: Boolean = false,
-    ) = MovementSlot(label = label, patterns = patterns, muscles = muscles, main = main)
+        ids: List<String> = emptyList(),
+        sets: Int? = null,
+        reps: IntRange? = null,
+        rest: Int? = null,
+        note: String = "",
+    ) = MovementSlot(
+        label = label,
+        patterns = patterns,
+        muscles = muscles,
+        main = main,
+        preferredExerciseIds = ids,
+        targetSets = sets,
+        repRange = reps,
+        restSeconds = rest,
+        note = note,
+    )
 
-    private val shouldersAndArms = SessionTemplate(
+    private val shouldersAndArmsA = SessionTemplate(
         name = "Shoulders & arms",
         focus = "Shoulders, biceps, triceps",
         slots = listOf(
-            slot("Press", setOf(MovementPattern.VERTICAL_PUSH), setOf(MuscleGroup.SHOULDERS), main = true),
-            slot("Rear delts", setOf(MovementPattern.HORIZONTAL_PULL), setOf(MuscleGroup.SHOULDERS)),
-            slot("Biceps", setOf(MovementPattern.CURL)),
-            slot("Triceps", setOf(MovementPattern.EXTENSION)),
-            slot("Biceps", setOf(MovementPattern.CURL)),
-            slot("Triceps", setOf(MovementPattern.EXTENSION)),
-            slot("Core", setOf(MovementPattern.CORE), setOf(MuscleGroup.ABS, MuscleGroup.OBLIQUES)),
+            slot("Cable lateral raise", setOf(MovementPattern.HORIZONTAL_PULL), ids = listOf("cable-lateral-raise"), sets = 3, reps = 12..15, rest = 60),
+            slot("Machine shoulder press", setOf(MovementPattern.VERTICAL_PUSH), setOf(MuscleGroup.SHOULDERS), main = true, ids = listOf("seated-machine-shoulder-press"), sets = 3, reps = 8..12, rest = 120),
+            slot("Rear-delt fly", setOf(MovementPattern.HORIZONTAL_PULL), setOf(MuscleGroup.SHOULDERS), ids = listOf("reverse-pec-deck", "cable-rear-delt-fly", "face-pull"), sets = 3, reps = 12..15, rest = 60),
+            slot("Biceps curl", setOf(MovementPattern.CURL), ids = listOf("dumbbell-curl", "cable-curl", "preacher-curl"), sets = 3, reps = 10..15, rest = 60),
+            slot("Triceps", setOf(MovementPattern.EXTENSION), ids = listOf("triceps-pushdown", "cable-overhead-triceps-extension"), sets = 3, reps = 10..15, rest = 60),
         ),
     )
 
-    private val legs = SessionTemplate(
+    private val shouldersAndArmsB = SessionTemplate(
+        name = "Shoulders & arms B", focus = "Lateral/rear delts, biceps, triceps",
+        slots = listOf(
+            slot("Cable lateral raise", setOf(MovementPattern.HORIZONTAL_PULL), ids = listOf("cable-lateral-raise"), sets = 3, reps = 12..15, rest = 60),
+            slot("Machine shoulder press", setOf(MovementPattern.VERTICAL_PUSH), setOf(MuscleGroup.SHOULDERS), main = true, ids = listOf("seated-machine-shoulder-press"), sets = 3, reps = 8..12, rest = 120),
+            slot("Rear-delt fly", setOf(MovementPattern.HORIZONTAL_PULL), setOf(MuscleGroup.SHOULDERS), ids = listOf("cable-rear-delt-fly", "reverse-pec-deck", "face-pull"), sets = 3, reps = 12..15, rest = 60),
+            slot("Biceps curl", setOf(MovementPattern.CURL), ids = listOf("preacher-curl", "cable-curl", "dumbbell-curl"), sets = 3, reps = 10..15, rest = 60),
+            slot("Triceps", setOf(MovementPattern.EXTENSION), ids = listOf("cable-overhead-triceps-extension", "triceps-pushdown"), sets = 3, reps = 10..15, rest = 60),
+        ),
+    )
+
+    private val legsA = SessionTemplate(
         name = "Legs",
         focus = "Quads, hamstrings, glutes",
         slots = listOf(
-            slot("Squat", setOf(MovementPattern.SQUAT), setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES), main = true),
-            slot("Hinge", setOf(MovementPattern.HINGE), setOf(MuscleGroup.HAMSTRINGS, MuscleGroup.GLUTES), main = true),
-            slot("Single leg", setOf(MovementPattern.LUNGE), setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES)),
-            slot("Calves", setOf(MovementPattern.CALF)),
-            slot("Core", setOf(MovementPattern.CORE), setOf(MuscleGroup.ABS, MuscleGroup.OBLIQUES)),
-            slot("Conditioning", setOf(MovementPattern.CONDITIONING)),
+            slot("Treadmill warm-up", setOf(MovementPattern.CONDITIONING), ids = listOf("treadmill-walk-warmup", "jump-rope"), sets = 1, reps = 5..8, rest = 0, note = "Easy effort for 5-8 minutes; log the minutes as reps."),
+            slot("Lying hamstring curl", setOf(MovementPattern.HINGE), setOf(MuscleGroup.HAMSTRINGS), ids = listOf("lying-leg-curl", "seated-leg-curl"), sets = 3, reps = 10..15, rest = 75),
+            slot("Squat machine", setOf(MovementPattern.SQUAT), setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES), main = true, ids = listOf("smith-machine-squat", "pendulum-squat"), sets = 3, reps = 8..12, rest = 120),
+            slot("Romanian deadlift", setOf(MovementPattern.HINGE), setOf(MuscleGroup.HAMSTRINGS), main = true, ids = listOf("romanian-deadlift", "dumbbell-rdl"), sets = 3, reps = 8..12, rest = 120),
+            slot("Leg extension", setOf(MovementPattern.SQUAT), setOf(MuscleGroup.QUADS), ids = listOf("leg-extension"), sets = 3, reps = 10..15, rest = 60),
+            slot("Calf raise", setOf(MovementPattern.CALF), ids = listOf("standing-calf-raise", "seated-calf-raise", "leg-press-calf-raise"), sets = 3, reps = 10..15, rest = 60),
         ),
     )
 
-    private val chestAndBack = SessionTemplate(
+    private val legsB = SessionTemplate(
+        name = "Legs B", focus = "Quads, hamstrings, glutes, calves",
+        slots = listOf(
+            slot("Treadmill warm-up", setOf(MovementPattern.CONDITIONING), ids = listOf("treadmill-walk-warmup", "jump-rope"), sets = 1, reps = 5..8, rest = 0, note = "Easy effort for 5-8 minutes; log the minutes as reps."),
+            slot("Hamstring curl", setOf(MovementPattern.HINGE), setOf(MuscleGroup.HAMSTRINGS), ids = listOf("seated-leg-curl", "lying-leg-curl"), sets = 3, reps = 10..15, rest = 75),
+            slot("Squat machine", setOf(MovementPattern.SQUAT), setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES), main = true, ids = listOf("pendulum-squat", "smith-machine-squat", "leg-press"), sets = 3, reps = 8..12, rest = 120),
+            slot("Hip hinge", setOf(MovementPattern.HINGE), setOf(MuscleGroup.GLUTES, MuscleGroup.HAMSTRINGS), main = true, ids = listOf("dumbbell-rdl", "barbell-hip-thrust", "romanian-deadlift"), sets = 3, reps = 8..12, rest = 120),
+            slot("Leg extension", setOf(MovementPattern.SQUAT), setOf(MuscleGroup.QUADS), ids = listOf("leg-extension"), sets = 3, reps = 12..15, rest = 60),
+            slot("Calf raise", setOf(MovementPattern.CALF), ids = listOf("seated-calf-raise", "leg-press-calf-raise", "standing-calf-raise"), sets = 3, reps = 12..15, rest = 60),
+        ),
+    )
+
+    private val chestAndBackA = SessionTemplate(
         name = "Chest & back",
         focus = "Chest, back, rear delts",
         slots = listOf(
-            slot("Chest", setOf(MovementPattern.HORIZONTAL_PUSH), setOf(MuscleGroup.CHEST), main = true),
-            slot("Row", setOf(MovementPattern.HORIZONTAL_PULL), setOf(MuscleGroup.UPPER_BACK, MuscleGroup.LATS), main = true),
-            slot("Lat pull", setOf(MovementPattern.VERTICAL_PULL), setOf(MuscleGroup.LATS, MuscleGroup.UPPER_BACK)),
-            slot("Chest", setOf(MovementPattern.HORIZONTAL_PUSH, MovementPattern.VERTICAL_PUSH), setOf(MuscleGroup.CHEST)),
-            slot("Rear delts", setOf(MovementPattern.HORIZONTAL_PULL), setOf(MuscleGroup.SHOULDERS)),
-            slot("Core", setOf(MovementPattern.CORE), setOf(MuscleGroup.ABS, MuscleGroup.OBLIQUES)),
+            slot("Incline press", setOf(MovementPattern.HORIZONTAL_PUSH), setOf(MuscleGroup.CHEST), main = true, ids = listOf("smith-incline-bench-press", "incline-dumbbell-press", "barbell-bench-press"), sets = 3, reps = 8..12, rest = 120),
+            slot("Chest fly", setOf(MovementPattern.HORIZONTAL_PUSH), setOf(MuscleGroup.CHEST), ids = listOf("chest-fly-machine", "cable-chest-fly"), sets = 3, reps = 10..15, rest = 60),
+            slot("Chest press", setOf(MovementPattern.HORIZONTAL_PUSH), setOf(MuscleGroup.CHEST), main = true, ids = listOf("machine-chest-press", "dumbbell-bench-press", "push-up"), sets = 3, reps = 8..12, rest = 90),
+            slot("Lat pulldown", setOf(MovementPattern.VERTICAL_PULL), setOf(MuscleGroup.LATS), ids = listOf("lat-pulldown", "band-lat-pulldown"), sets = 3, reps = 8..12, rest = 90),
+            slot("Seated row", setOf(MovementPattern.HORIZONTAL_PULL), setOf(MuscleGroup.UPPER_BACK), main = true, ids = listOf("seated-cable-row", "chest-supported-row", "one-arm-dumbbell-row"), sets = 3, reps = 8..12, rest = 90),
+            slot("Supported row", setOf(MovementPattern.HORIZONTAL_PULL), setOf(MuscleGroup.UPPER_BACK), ids = listOf("chest-supported-row", "one-arm-dumbbell-row", "seated-cable-row"), sets = 2, reps = 10..15, rest = 75),
+        ),
+    )
+
+    private val chestAndBackB = SessionTemplate(
+        name = "Chest & back B", focus = "Chest, lats, upper back",
+        slots = listOf(
+            slot("Chest press", setOf(MovementPattern.HORIZONTAL_PUSH), setOf(MuscleGroup.CHEST), main = true, ids = listOf("machine-chest-press", "dumbbell-bench-press", "push-up"), sets = 3, reps = 8..12, rest = 120),
+            slot("Chest fly", setOf(MovementPattern.HORIZONTAL_PUSH), setOf(MuscleGroup.CHEST), ids = listOf("cable-chest-fly", "chest-fly-machine"), sets = 3, reps = 10..15, rest = 60),
+            slot("Incline press", setOf(MovementPattern.HORIZONTAL_PUSH), setOf(MuscleGroup.CHEST), main = true, ids = listOf("incline-dumbbell-press", "smith-incline-bench-press", "push-up"), sets = 3, reps = 8..12, rest = 120),
+            slot("Lat pulldown", setOf(MovementPattern.VERTICAL_PULL), setOf(MuscleGroup.LATS), ids = listOf("band-lat-pulldown", "lat-pulldown"), sets = 3, reps = 8..12, rest = 90),
+            slot("Supported row", setOf(MovementPattern.HORIZONTAL_PULL), setOf(MuscleGroup.UPPER_BACK), main = true, ids = listOf("chest-supported-row", "one-arm-dumbbell-row", "seated-cable-row"), sets = 3, reps = 8..12, rest = 90),
+            slot("Optional shrug", setOf(MovementPattern.CARRY), setOf(MuscleGroup.TRAPS), ids = listOf("dumbbell-shrug"), sets = 2, reps = 10..15, rest = 60, note = "Optional accessory."),
+            slot("Optional deadlift practice", setOf(MovementPattern.HINGE), setOf(MuscleGroup.GLUTES, MuscleGroup.HAMSTRINGS), ids = listOf("trap-bar-deadlift", "cable-pull-through"), sets = 2, reps = 5..6, rest = 150, note = "Optional. Learn the movement first with a coach; choose a load yourself, keep it easy, and stop if form changes."),
         ),
     )
 
@@ -319,12 +368,12 @@ object SplitTemplates {
             "and chest work is placed on Wednesday and Saturday so Monday stays upper-arm focused.",
         featured = true,
         days = listOf(
-            day(DayOfWeek.MONDAY, "Shoulders & arms", shouldersAndArms),
-            day(DayOfWeek.TUESDAY, "Legs", legs),
-            day(DayOfWeek.WEDNESDAY, "Chest & back", chestAndBack),
-            day(DayOfWeek.THURSDAY, "Shoulders & arms", shouldersAndArms),
-            day(DayOfWeek.FRIDAY, "Legs", legs),
-            day(DayOfWeek.SATURDAY, "Chest & back", chestAndBack),
+            day(DayOfWeek.MONDAY, "Shoulders & arms A", shouldersAndArmsA),
+            day(DayOfWeek.TUESDAY, "Legs A", legsA),
+            day(DayOfWeek.WEDNESDAY, "Chest & back A", chestAndBackA),
+            day(DayOfWeek.THURSDAY, "Shoulders & arms B", shouldersAndArmsB),
+            day(DayOfWeek.FRIDAY, "Legs B", legsB),
+            day(DayOfWeek.SATURDAY, "Chest & back B", chestAndBackB),
             day(DayOfWeek.SUNDAY, "Rest", fullBodyA, isRest = true),
         ),
     )
@@ -357,7 +406,7 @@ object SplitTemplates {
             day(DayOfWeek.TUESDAY, "Rest", fullBodyA, isRest = true),
             day(DayOfWeek.WEDNESDAY, "Pull", pull),
             day(DayOfWeek.THURSDAY, "Rest", fullBodyB, isRest = true),
-            day(DayOfWeek.FRIDAY, "Legs", legs),
+            day(DayOfWeek.FRIDAY, "Legs", legsA),
             day(DayOfWeek.SATURDAY, "Rest", fullBodyC, isRest = true),
             day(DayOfWeek.SUNDAY, "Rest", homeFull, isRest = true),
         ),
@@ -371,7 +420,7 @@ object SplitTemplates {
             "to keep up, and the easiest to recover from while you build the habit.",
         days = listOf(
             day(DayOfWeek.MONDAY, "Full body A", fullBodyA),
-            day(DayOfWeek.TUESDAY, "Rest", legs, isRest = true),
+            day(DayOfWeek.TUESDAY, "Rest", legsA, isRest = true),
             day(DayOfWeek.WEDNESDAY, "Full body B", fullBodyB),
             day(DayOfWeek.THURSDAY, "Rest", upperA, isRest = true),
             day(DayOfWeek.FRIDAY, "Full body C", fullBodyC),
