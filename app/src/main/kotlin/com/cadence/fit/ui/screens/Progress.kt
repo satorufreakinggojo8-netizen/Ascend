@@ -21,15 +21,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cadence.fit.domain.insight.ChartWindow
 import com.cadence.fit.domain.insight.LevelAssessment
 import com.cadence.fit.domain.math.PersonalRecordType
 import com.cadence.fit.domain.progression.PlateauInsight
-import com.cadence.fit.domain.rank.RankAnchor
-import com.cadence.fit.domain.rank.StrengthRank
-import com.cadence.fit.domain.rank.StrengthRankAssessment
 import com.cadence.fit.domain.units.Weights
 import com.cadence.fit.ui.CadenceViewModel
 import com.cadence.fit.ui.ScreenModels
@@ -39,16 +35,12 @@ import com.cadence.fit.ui.components.CadenceIcon
 import com.cadence.fit.ui.components.CadenceTopBar
 import com.cadence.fit.ui.components.EmptyState
 import com.cadence.fit.ui.components.FilterChip
-import com.cadence.fit.ui.components.HeroButton
-import com.cadence.fit.ui.components.HeroCard
-import com.cadence.fit.ui.components.HeroProgressBar
 import com.cadence.fit.ui.components.InfoNote
 import com.cadence.fit.ui.components.LineChart
-import com.cadence.fit.ui.components.RankCrest
-import com.cadence.fit.ui.components.RankPill
 import com.cadence.fit.ui.components.CadenceProgressBar
 import com.cadence.fit.ui.components.Badge
 import com.cadence.fit.ui.components.SecondaryButton
+import com.cadence.fit.ui.components.ScreenPadding
 import com.cadence.fit.ui.components.SectionHeader
 import com.cadence.fit.ui.components.StatTile
 import com.cadence.fit.ui.components.ThinDivider
@@ -87,7 +79,7 @@ fun ProgressScreen(
             actionDescriptions = listOf("Workout history"),
         )
 
-        Column(Modifier.padding(horizontal = 20.dp)) {
+        Column(Modifier.padding(horizontal = ScreenPadding.horizontal)) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ChartWindow.entries.forEach { option ->
                     FilterChip(
@@ -107,7 +99,7 @@ fun ProgressScreen(
             Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 14.dp),
+                .padding(horizontal = ScreenPadding.horizontal, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             if (model.summary.totalSessions == 0) {
@@ -117,24 +109,13 @@ fun ProgressScreen(
                     icon = CadenceIcon.Progress,
                 )
             } else {
-                RankCard(
-                    assessment = model.rank,
-                    unit = unit,
-                    onOpenProfile = onOpenProfile,
-                    onOpenLibrary = onOpenLibrary,
-                )
+                MuscleStrengthCard(model, unit, onOpenBodyMap)
 
                 CadenceCard {
                     SectionHeader(
                         title = "Training volume",
                         subtitle = "Total working volume per week",
-                        trailing = {
-                            CadenceIcon(
-                                CadenceIcon.TrendUp,
-                                size = 18.dp,
-                                tint = CadenceTheme.tones.success,
-                            )
-                        },
+                        icon = CadenceIcon.TrendUp,
                     )
                     Spacer(Modifier.size(14.dp))
                     val bestWeek = model.volumeByWeek.indices
@@ -192,6 +173,7 @@ fun ProgressScreen(
                     SectionHeader(
                         title = "Consistency",
                         subtitle = "Sessions per week against your ${model.targetSessionsPerWeek}-day target",
+                        icon = CadenceIcon.Calendar,
                     )
                     Spacer(Modifier.size(14.dp))
                     val averageSessions = model.consistencyByWeek
@@ -239,7 +221,11 @@ fun ProgressScreen(
                 }
 
                 CadenceCard {
-                    SectionHeader(title = "Summary", subtitle = "Last 28 days")
+                    SectionHeader(
+                        title = "Summary",
+                        subtitle = "Last 28 days",
+                        icon = CadenceIcon.Check,
+                    )
                     Spacer(Modifier.size(14.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                         StatTile(
@@ -288,6 +274,7 @@ fun ProgressScreen(
                         SectionHeader(
                             title = "Recent records",
                             subtitle = "Set in the last 28 days",
+                            icon = CadenceIcon.Trophy,
                         )
                         Spacer(Modifier.size(10.dp))
                         model.recentRecords.take(8).forEach { record ->
@@ -361,7 +348,7 @@ fun ProgressScreen(
                     )
                 }
             }
-            Spacer(Modifier.size(16.dp))
+            Spacer(Modifier.size(ScreenPadding.bottom))
         }
     }
 }
@@ -504,170 +491,82 @@ private fun LevelCard(level: LevelAssessment, onHide: () -> Unit) {
     }
 }
 
+
 /**
- * Rank hero plus the four anchors that produced it. The rank is a benchmark
- * against the user's own body weight, not a judgement or a competition class.
+ * Measured strength by muscle group: the best logged set for each movement and
+ * the date it was set. Nothing here is inferred from body measurements.
  */
 @Composable
-private fun RankCard(
-    assessment: StrengthRankAssessment,
+private fun MuscleStrengthCard(
+    model: com.cadence.fit.ui.ProgressModel,
     unit: com.cadence.fit.domain.units.WeightUnit,
-    onOpenProfile: () -> Unit,
-    onOpenLibrary: () -> Unit,
+    onOpenBodyMap: () -> Unit,
 ) {
-    val gradients = CadenceTheme.gradients
-    val rank = assessment.rank
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        HeroCard {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                RankCrest(rank = rank, size = 68.dp, onDark = true)
-                Spacer(Modifier.size(16.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        "YOUR RANK",
-                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.6.sp),
-                        color = gradients.heroGlow,
-                    )
-                    Spacer(Modifier.size(2.dp))
-                    Text(
-                        rank?.displayName ?: "Unranked",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = gradients.heroContent,
-                    )
-                    Text(
-                        when {
-                            rank != null -> "${assessment.anchorCount} of " +
-                                "${assessment.totalAnchors} anchors · best e1RM vs bodyweight"
-                            assessment.bodyweightKg == null ->
-                                "Add bodyweight to compare your lifts"
-                            else ->
-                                "Log a barbell squat, bench, deadlift or overhead press"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = gradients.heroContent.copy(alpha = 0.72f),
-                    )
-                }
-            }
-            Spacer(Modifier.size(16.dp))
-            when {
-                rank != null -> {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "Next: ${assessment.nextRank?.displayName ?: "Top of the ladder"}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = gradients.heroContent.copy(alpha = 0.72f),
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            if (assessment.nextRank == null) {
-                                "Max"
-                            } else {
-                                "${(assessment.progressToNext * 100).roundToInt()}%"
-                            },
-                            style = MaterialTheme.typography.labelMedium,
-                            color = gradients.heroGlow,
-                        )
-                    }
-                    Spacer(Modifier.size(6.dp))
-                    HeroProgressBar(assessment.progressToNext)
-                }
-                assessment.bodyweightKg == null -> {
-                    Text(
-                        "A rank needs one current bodyweight reading. It is stored only " +
-                            "on this device.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = gradients.heroContent.copy(alpha = 0.82f),
-                    )
-                    Spacer(Modifier.size(12.dp))
-                    HeroButton(
-                        text = "Add bodyweight",
-                        icon = CadenceIcon.User,
-                        onClick = onOpenProfile,
-                    )
-                }
-                else -> {
-                    Text(
-                        "Your rank starts with a barbell squat, bench press, deadlift or " +
-                            "overhead press.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = gradients.heroContent.copy(alpha = 0.82f),
-                    )
-                    Spacer(Modifier.size(12.dp))
-                    HeroButton(
-                        text = "Browse barbell lifts",
-                        icon = CadenceIcon.Book,
-                        onClick = onOpenLibrary,
-                    )
-                }
-            }
-        }
-
-        CadenceCard {
-            SectionHeader(
-                title = "Rank breakdown",
-                subtitle = "5 tiers · 4 anchor lifts · best estimated 1RM",
+    val rows = model.muscleWindow.exercisesByMuscle.entries
+        .mapNotNull { (muscle, history) -> history.firstOrNull()?.let { muscle to it } }
+        .sortedByDescending { it.second.bestE1rmKg }
+        .take(4)
+    CadenceCard {
+        SectionHeader(
+            title = "Strength by muscle",
+            subtitle = "Best logged set per movement · last 4 weeks",
+            icon = CadenceIcon.TrendUp,
+        )
+        Spacer(Modifier.size(10.dp))
+        if (rows.isEmpty()) {
+            Text(
+                "Nothing logged in the last four weeks yet. Best sets and the dates you hit " +
+                    "them appear here as soon as you complete a session.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.size(10.dp))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                StrengthRank.entries.forEach { tier ->
-                    RankPill(tier, highlighted = tier == assessment.rank)
-                }
-            }
-            Spacer(Modifier.size(12.dp))
-            RankAnchor.entries.forEachIndexed { index, anchor ->
-                val lift = assessment.lifts.firstOrNull { it.anchor == anchor }
+        } else {
+            rows.forEachIndexed { index, (muscle, best) ->
                 if (index > 0) ThinDivider()
                 Row(
                     Modifier.fillMaxWidth().padding(vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(anchor.displayName, style = MaterialTheme.typography.titleSmall)
+                        Text(muscle.displayName, style = MaterialTheme.typography.titleSmall)
                         Text(
-                            lift?.exerciseName ?: "Not logged yet",
+                            best.exerciseName,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    if (lift != null) {
-                        Column(horizontalAlignment = Alignment.End) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                lift.rank?.let { liftRank ->
-                                    RankPill(liftRank, highlighted = true)
-                                    Spacer(Modifier.size(6.dp))
-                                }
-                                Text(
-                                    Weights.formatWithUnit(lift.bestE1rmKg, unit),
-                                    style = MaterialTheme.typography.titleSmall,
-                                )
-                            }
-                            Text(
-                                lift.ratio?.let { "${Weights.formatAmount(it)}× bodyweight" }
-                                    ?: "Bodyweight needed",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    } else {
+                    Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            "—",
-                            style = MaterialTheme.typography.titleMedium,
+                            "${Weights.format(best.bestWeightKg, unit)} " +
+                                "${unit.abbreviation} × ${best.bestReps}",
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        Text(
+                            strengthDate(best.achievedAtMs),
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
             }
-            Spacer(Modifier.size(8.dp))
+            Spacer(Modifier.size(10.dp))
             Text(
-                "Ranks compare your best logged estimated 1RMs with current bodyweight. " +
-                    "They are broad training benchmarks, not tested maximums, competition " +
-                    "classes or health assessments.",
+                "Weights and reps are measured from your log. The estimated 1RM figures on " +
+                    "the full view are a formula, not a tested maximum.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        Spacer(Modifier.size(12.dp))
+        SecondaryButton(text = "Open strength by muscle", onClick = onOpenBodyMap)
     }
 }
+
+private val STRENGTH_DATE: java.time.format.DateTimeFormatter =
+    java.time.format.DateTimeFormatter.ofPattern("d MMM")
+
+private fun strengthDate(atMs: Long): String =
+    java.time.Instant.ofEpochMilli(atMs)
+        .atZone(java.time.ZoneId.systemDefault())
+        .toLocalDate()
+        .format(STRENGTH_DATE)

@@ -6,9 +6,12 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,11 +44,40 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.cadence.fit.ui.theme.CadenceTheme
+
+/**
+ * A small, springy sink while a surface is held. Feedback happens on the whole
+ * card or button, so a tap is acknowledged before the next screen appears.
+ */
+@Composable
+fun Modifier.pressable(
+    interactionSource: MutableInteractionSource,
+    pressedScale: Float = 0.975f,
+): Modifier {
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) pressedScale else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMediumLow),
+        label = "pressScale",
+    )
+    return this.graphicsLayer {
+        scaleX = scale
+        scaleY = scale
+    }
+}
+
+/** Shared rhythm so every screen breathes the same way. */
+object ScreenPadding {
+    val horizontal: Dp = 20.dp
+    val bottom: Dp = 24.dp
+}
 
 /** Standard content card. */
 @Composable
@@ -55,10 +88,9 @@ fun CadenceCard(
 ) {
     val shape = MaterialTheme.shapes.medium
     val border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-    val lifted = modifier.shadow(2.dp, shape, clip = false)
     if (onClick == null) {
         Surface(
-            modifier = lifted.fillMaxWidth(),
+            modifier = modifier.shadow(2.dp, shape, clip = false).fillMaxWidth(),
             shape = shape,
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
@@ -67,13 +99,18 @@ fun CadenceCard(
             Column(Modifier.padding(18.dp)) { content() }
         }
     } else {
+        val interaction = remember { MutableInteractionSource() }
         Surface(
-            modifier = lifted.fillMaxWidth(),
+            onClick = onClick,
+            modifier = modifier
+                .pressable(interaction)
+                .shadow(2.dp, shape, clip = false)
+                .fillMaxWidth(),
             shape = shape,
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
             border = border,
-            onClick = onClick,
+            interactionSource = interaction,
         ) {
             Column(Modifier.padding(18.dp)) { content() }
         }
@@ -135,12 +172,18 @@ fun HeroButton(
 ) {
     val gradients = CadenceTheme.gradients
     val shape = MaterialTheme.shapes.small
+    val interaction = remember { MutableInteractionSource() }
     Row(
         modifier = modifier
+            .pressable(interaction, pressedScale = 0.98f)
             .fillMaxWidth()
             .clip(shape)
             .background(gradients.heroContent)
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                onClick = onClick,
+            )
             .padding(vertical = 15.dp, horizontal = 18.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
@@ -162,12 +205,25 @@ fun SectionHeader(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    icon: CadenceIcon? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (icon != null) {
+            Box(
+                Modifier
+                    .size(34.dp)
+                    .clip(MaterialTheme.shapes.small)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                CadenceIcon(icon, size = 18.dp, tint = MaterialTheme.colorScheme.primary)
+            }
+            Spacer(Modifier.width(10.dp))
+        }
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             if (subtitle != null) {
@@ -343,13 +399,20 @@ fun PrimaryButton(
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
     }
+    val interaction = remember { MutableInteractionSource() }
     Row(
         modifier = modifier
+            .pressable(interaction, pressedScale = 0.985f)
             .fillMaxWidth()
             .shadow(if (enabled) 6.dp else 0.dp, MaterialTheme.shapes.small, clip = false)
             .clip(MaterialTheme.shapes.small)
             .background(background)
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                enabled = enabled,
+                onClick = onClick,
+            )
             .padding(vertical = 16.dp, horizontal = 18.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
@@ -385,12 +448,19 @@ fun SecondaryButton(
         destructive -> MaterialTheme.colorScheme.error
         else -> MaterialTheme.colorScheme.onSurface
     }
+    val interaction = remember { MutableInteractionSource() }
     Row(
         modifier = modifier
+            .pressable(interaction, pressedScale = 0.985f)
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.small)
             .border(BorderStroke(1.dp, borderColor), MaterialTheme.shapes.small)
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                enabled = enabled,
+                onClick = onClick,
+            )
             .padding(vertical = 14.dp, horizontal = 18.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,

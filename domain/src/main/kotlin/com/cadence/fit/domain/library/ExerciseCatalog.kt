@@ -32,6 +32,8 @@ interface ExerciseCatalog {
                 Equipment.CABLE,
                 Equipment.BENCH,
                 Equipment.MAT,
+                // A gym trip normally includes a treadmill or bike for a warm-up.
+                Equipment.CARDIO_MACHINE,
             )
         }
     }

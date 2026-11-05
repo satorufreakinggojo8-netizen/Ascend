@@ -17,6 +17,7 @@ import com.cadence.fit.domain.library.ExerciseCatalog
 import com.cadence.fit.domain.math.PersonalRecord
 import com.cadence.fit.domain.math.WorkoutMath
 import com.cadence.fit.domain.model.Exercise
+import com.cadence.fit.domain.model.LoggedSet
 import com.cadence.fit.domain.model.MuscleGroup
 import com.cadence.fit.domain.model.Routine
 import com.cadence.fit.domain.model.ScheduleStatus
@@ -29,8 +30,6 @@ import com.cadence.fit.domain.progression.PlateauInsight
 import com.cadence.fit.domain.progression.ProgressionEngine
 import com.cadence.fit.domain.progression.ProgressionRecommendation
 import com.cadence.fit.domain.progression.SuggestionKind
-import com.cadence.fit.domain.rank.StrengthRankAssessment
-import com.cadence.fit.domain.rank.StrengthRanker
 import com.cadence.fit.domain.time.TimeRanges
 import com.cadence.fit.domain.units.WeightUnit
 import com.cadence.fit.domain.workout.PreviousPerformance
@@ -62,7 +61,6 @@ data class HomeDay(
 data class HomeModel(
     val nextAction: NextAction,
     val summary: ProgressSummary,
-    val rank: StrengthRankAssessment,
     val lastCompleted: WorkoutSession?,
     val activeSession: WorkoutSession?,
     val volumeTrend: List<Float>,
@@ -81,6 +79,8 @@ data class MuscleWindow(
     val workingSetsCounted: Int = 0,
     val setsByMuscle: Map<MuscleGroup, Int> = emptyMap(),
     val bestLiftByMuscle: Map<MuscleGroup, MuscleLift> = emptyMap(),
+    /** Every movement that trained this muscle, best estimated lift first. */
+    val exercisesByMuscle: Map<MuscleGroup, List<MuscleExerciseHistory>> = emptyMap(),
 ) {
     val untrainedGroups: List<MuscleGroup>
         get() = MuscleGroup.bodyMapGroups.filter { (volumeByMuscle[it] ?: 0.0) <= 0.0 }
@@ -99,6 +99,29 @@ data class MuscleLift(
     val achievedAtMs: Long,
 )
 
+/**
+ * One movement's logged record for a single muscle group.
+ *
+ * [bestWeightKg] and [bestReps] are measured sets. [bestE1rmKg] is a formula
+ * applied to that set, kept separate so the UI can label it as an estimate.
+ * [trendKg] holds the best estimate from each session, oldest first.
+ */
+data class MuscleExerciseHistory(
+    val exerciseId: String,
+    val exerciseName: String,
+    val bestWeightKg: Double,
+    val bestReps: Int,
+    val bestE1rmKg: Double,
+    val achievedAtMs: Long,
+    val sessionCount: Int,
+    val totalSets: Int,
+    val trendKg: List<Double> = emptyList(),
+    val trendAtMs: List<Long> = emptyList(),
+) {
+    val changeKg: Double?
+        get() = trendKg.takeIf { it.size >= 2 }?.let { it.last() - it.first() }
+}
+
 data class ExerciseDetailModel(
     val exercise: Exercise,
     val previous: PreviousPerformance?,
@@ -111,7 +134,6 @@ data class ExerciseDetailModel(
 
 data class ProgressModel(
     val summary: ProgressSummary,
-    val rank: StrengthRankAssessment,
     val volumeByWeek: List<Float>,
     val consistencyByWeek: List<Float>,
     val weekLabels: List<String>,
@@ -248,11 +270,6 @@ object ScreenModels {
         return HomeModel(
             nextAction = nextAction,
             summary = summary,
-            rank = StrengthRanker.assess(
-                state.completedSessions,
-                catalog,
-                state.bodyProfile.latestWeightKg,
-            ),
             lastCompleted = lastCompleted,
             activeSession = active,
             volumeTrend = ChartData.volumeByWeek(state.sessions, com.cadence.fit.domain.insight.ChartWindow.TWELVE_WEEKS, nowMs, zone)
@@ -283,32 +300,76 @@ object ScreenModels {
         zone: ZoneId = TimeRanges.zone(),
     ): MuscleWindow {
         val sessions = TimeRanges.sessionsWithin(state.sessions, days, nowMs)
+            .sortedBy { it.completedAtMs }
         val volume = WorkoutMath.volumeByMuscle(sessions, catalog)
         val setsByMuscle = mutableMapOf<MuscleGroup, Int>()
         val bestLifts = mutableMapOf<MuscleGroup, MuscleLift>()
+        val builders = mutableMapOf<MuscleGroup, MutableMap<String, MuscleExerciseBuilder>>()
         var workingSets = 0
-        sessions.forEach { session ->
-            session.workingSets.forEach { set ->
+        for (session in sessions) {
+            for (set in session.workingSets) {
                 workingSets += 1
-                val exercise = catalog.byId(set.exerciseId) ?: return@forEach
-                exercise.primaryMuscles
-                    .filter { it.appearsOnBodyMap }
-                    .distinct()
-                    .forEach { muscle ->
-                        setsByMuscle[muscle] = (setsByMuscle[muscle] ?: 0) + 1
-                        val estimate = set.estimatedOneRepMaxKg
-                        if (estimate > (bestLifts[muscle]?.estimatedOneRepMaxKg ?: 0.0)) {
-                            bestLifts[muscle] = MuscleLift(
-                                exerciseId = set.exerciseId,
-                                exerciseName = exercise.name,
-                                weightKg = set.weightKg,
-                                reps = set.reps,
-                                estimatedOneRepMaxKg = estimate,
-                                achievedAtMs = set.completedAtMs,
-                            )
-                        }
+                val exercise = catalog.byId(set.exerciseId) ?: continue
+                val muscles = exercise.primaryMuscles.filter { it.appearsOnBodyMap }.distinct()
+                for (muscle in muscles) {
+                    setsByMuscle[muscle] = (setsByMuscle[muscle] ?: 0) + 1
+                    val estimate = set.estimatedOneRepMaxKg
+                    if (estimate > (bestLifts[muscle]?.estimatedOneRepMaxKg ?: 0.0)) {
+                        bestLifts[muscle] = MuscleLift(
+                            exerciseId = set.exerciseId,
+                            exerciseName = exercise.name,
+                            weightKg = set.weightKg,
+                            reps = set.reps,
+                            estimatedOneRepMaxKg = estimate,
+                            achievedAtMs = set.completedAtMs,
+                        )
                     }
+                }
             }
+
+            // One entry per movement per session, so the trend has one point each time
+            // the exercise was actually trained.
+            for ((exerciseId, sets) in session.workingSets.groupBy { it.exerciseId }) {
+                val exercise = catalog.byId(exerciseId) ?: continue
+                val bestInSession = sets.maxWithOrNull(
+                    compareBy({ it.estimatedOneRepMaxKg }, { it.weightKg }),
+                ) ?: continue
+                val muscles = exercise.primaryMuscles.filter { it.appearsOnBodyMap }.distinct()
+                for (muscle in muscles) {
+                    val builder = builders
+                        .getOrPut(muscle) { mutableMapOf() }
+                        .getOrPut(exerciseId) {
+                            MuscleExerciseBuilder(exerciseId = exerciseId, exerciseName = exercise.name)
+                        }
+                    builder.totalSets += sets.size
+                    builder.sessionIds += session.id
+                    builder.trend += session.completedAtMs to bestInSession.estimatedOneRepMaxKg
+                    val current = builder.best
+                    if (current == null || bestInSession.estimatedOneRepMaxKg > current.estimatedOneRepMaxKg) {
+                        builder.best = bestInSession
+                    }
+                }
+            }
+        }
+        val histories = builders.mapValues { (_, entries) ->
+            entries.values.mapNotNull { builder ->
+                val best = builder.best ?: return@mapNotNull null
+                MuscleExerciseHistory(
+                    exerciseId = builder.exerciseId,
+                    exerciseName = builder.exerciseName,
+                    bestWeightKg = best.weightKg,
+                    bestReps = best.reps,
+                    bestE1rmKg = best.estimatedOneRepMaxKg,
+                    achievedAtMs = best.completedAtMs,
+                    sessionCount = builder.sessionIds.size,
+                    totalSets = builder.totalSets,
+                    trendKg = builder.trend.map { it.second },
+                    trendAtMs = builder.trend.map { it.first },
+                )
+            }.sortedWith(
+                compareByDescending<MuscleExerciseHistory> { it.bestE1rmKg }
+                    .thenByDescending { it.achievedAtMs },
+            )
         }
         return MuscleWindow(
             days = days,
@@ -319,6 +380,7 @@ object ScreenModels {
             workingSetsCounted = workingSets,
             setsByMuscle = setsByMuscle,
             bestLiftByMuscle = bestLifts,
+            exercisesByMuscle = histories,
         )
     }
 
@@ -471,11 +533,6 @@ object ScreenModels {
 
         return ProgressModel(
             summary = summary,
-            rank = StrengthRanker.assess(
-                state.completedSessions,
-                catalog,
-                state.bodyProfile.latestWeightKg,
-            ),
             volumeByWeek = volumeWeeks.map { it.volumeKg.toFloat() },
             consistencyByWeek = consistency.map { it.sessions.toFloat() },
             weekLabels = volumeWeeks.map { it.label },
@@ -505,4 +562,15 @@ object ScreenModels {
     private fun CadenceState.goalFor(slot: com.cadence.fit.domain.model.RoutineExercise) =
         routines.firstOrNull { routine -> routine.exercises.any { it.id == slot.id } }?.goal
             ?: profile.goal
+}
+
+/** Mutable accumulator while a [ScreenModels.muscleWindow] is being built. */
+private class MuscleExerciseBuilder(
+    val exerciseId: String,
+    val exerciseName: String,
+) {
+    var best: LoggedSet? = null
+    var totalSets: Int = 0
+    val sessionIds: MutableSet<String> = linkedSetOf()
+    val trend: MutableList<Pair<Long, Double>> = mutableListOf()
 }

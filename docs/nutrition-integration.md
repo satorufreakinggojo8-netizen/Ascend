@@ -39,7 +39,7 @@ All fields are optional and individually toggled.
 
 | Field | Example | Why it helps | Default |
 | --- | --- | --- | --- |
-| `planName` | `"Personal 6-day"` | Context for training load | Off |
+| `planName` | `"Abhinav's Split"` | Context for training load | Off |
 | `goal` | `"MUSCLE_GAIN"` | A nutrition app may adjust guidance | Off |
 | `trainingDaysPerWeek` | `6` | Rough weekly energy expenditure context | Off |
 | `sessionsCompletedLast7Days` | `4` | Consistency, not calories | Off |

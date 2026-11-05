@@ -81,6 +81,17 @@ fun BarChart(
             val slot = size.width / values.size
             val barWidth = (slot * 0.62f).coerceAtLeast(4f)
             val baseline = size.height
+            // Two barely-there gridlines give the bars a scale to read against
+            // without drawing a full chart frame.
+            repeat(2) { line ->
+                val y = size.height * (line + 1) / 3f
+                drawLine(
+                    color = outline.copy(alpha = 0.35f),
+                    start = Offset(0f, y),
+                    end = Offset(size.width, y),
+                    strokeWidth = 1f,
+                )
+            }
             drawLine(
                 color = outline,
                 start = Offset(0f, baseline - 1f),

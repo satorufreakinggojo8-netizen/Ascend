@@ -115,7 +115,14 @@ class PlanBuilder(
         val chosen = mutableListOf<RoutineExercise>()
         val usedHere = mutableSetOf<String>()
 
-        template.slots.take(exerciseCount).forEach { slot ->
+        // Authored sessions keep every requested movement; the generic templates
+        // still respect the session-length target.
+        val slots = if (template.slots.any { it.preferredExerciseIds.isNotEmpty() }) {
+            template.slots
+        } else {
+            template.slots.take(exerciseCount)
+        }
+        slots.forEach { slot ->
             val candidate = pick(slot, equipment, profile.experience, usedHere, usedAcrossPlan, variantOffset)
                 ?: return@forEach
             usedHere += candidate.id
@@ -143,6 +150,19 @@ class PlanBuilder(
         usedAcrossPlan: Set<String>,
         variantOffset: Int,
     ): Exercise? {
+        // A hand-built session names its movements in order. The first one the user
+        // can actually perform wins; if none is available the slot stays empty
+        // rather than silently becoming a different exercise.
+        if (slot.preferredExerciseIds.isNotEmpty()) {
+            return slot.preferredExerciseIds.asSequence()
+                .mapNotNull { catalog.byId(it) }
+                .firstOrNull {
+                    kitAvailable(it, equipment) &&
+                        difficultyAllowed(it.difficulty, experience) &&
+                        it.id !in usedHere
+                }
+        }
+
         val candidates = catalog.all.asSequence()
             .filter { it.pattern in slot.patterns }
             .filter { slot.muscles.isEmpty() || it.primaryMuscles.any { muscle -> muscle in slot.muscles } }
@@ -172,7 +192,7 @@ class PlanBuilder(
         profile: TrainingProfile,
     ): RoutineExercise {
         val isIsolation = exercise.pattern in ISOLATION_PATTERNS
-        val sets = when {
+        val sets = slot.targetSets ?: when {
             slot.main -> when (profile.experience) {
                 ExperienceLevel.BEGINNER -> 3
                 ExperienceLevel.INTERMEDIATE -> 3
@@ -181,8 +201,8 @@ class PlanBuilder(
             profile.experience == ExperienceLevel.BEGINNER -> 2
             else -> 3
         }
-        val repRange = repRangeFor(profile.goal, exercise, isIsolation)
-        val rest = when {
+        val repRange = slot.repRange ?: repRangeFor(profile.goal, exercise, isIsolation)
+        val rest = slot.restSeconds ?: when {
             slot.main -> profile.goal.defaultRestSeconds
             isIsolation -> 60
             else -> (profile.goal.defaultRestSeconds - 30).coerceAtLeast(45)
@@ -200,7 +220,8 @@ class PlanBuilder(
             repRange = repRange,
             restSeconds = rest,
             warmupSets = warmups,
-            note = if (isIsolation && exercise.isUnilateral) "Each side" else "",
+            note = listOfNotNull(slot.note.takeIf { it.isNotBlank() },
+                if (isIsolation && exercise.isUnilateral) "Each side" else null).joinToString(" · "),
         )
     }
 
