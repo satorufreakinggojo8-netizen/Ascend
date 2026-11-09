@@ -356,23 +356,22 @@ object SplitTemplates {
     )
 
     /**
-     * The requested personal split, featured in the picker.
-     *
-     * Six training days, one rest day, chest never on Monday.
+     * Abhinav's requested split: legs Monday, arms Tuesday, chest and back Wednesday.
+     * Later sessions keep the six-day rhythm, with Sunday reserved for recovery.
      */
     val personalSixDay: SplitTemplate = SplitTemplate(
         id = "personal-six-day",
         name = "Abhinav's Split",
-        tagline = "Shoulders & arms · legs · chest & back, twice",
-        summary = "Six training days with Sunday off. Shoulders and arms open the week, " +
-            "and chest work is placed on Wednesday and Saturday so Monday stays upper-arm focused.",
+        tagline = "Legs · arms · chest & back, on your days",
+        summary = "Your week starts with legs Monday, arms Tuesday, and chest & back Wednesday. " +
+            "The groups repeat later in the week, with Sunday for recovery.",
         featured = true,
         days = listOf(
-            day(DayOfWeek.MONDAY, "Shoulders & arms A", shouldersAndArmsA),
-            day(DayOfWeek.TUESDAY, "Legs A", legsA),
+            day(DayOfWeek.MONDAY, "Legs A", legsA),
+            day(DayOfWeek.TUESDAY, "Arms A", shouldersAndArmsA),
             day(DayOfWeek.WEDNESDAY, "Chest & back A", chestAndBackA),
-            day(DayOfWeek.THURSDAY, "Shoulders & arms B", shouldersAndArmsB),
-            day(DayOfWeek.FRIDAY, "Legs B", legsB),
+            day(DayOfWeek.THURSDAY, "Legs B", legsB),
+            day(DayOfWeek.FRIDAY, "Arms B", shouldersAndArmsB),
             day(DayOfWeek.SATURDAY, "Chest & back B", chestAndBackB),
             day(DayOfWeek.SUNDAY, "Rest", fullBodyA, isRest = true),
         ),

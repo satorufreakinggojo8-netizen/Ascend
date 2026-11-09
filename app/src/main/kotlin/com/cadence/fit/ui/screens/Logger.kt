@@ -47,6 +47,7 @@ import com.cadence.fit.domain.model.LoggedSet
 import com.cadence.fit.domain.model.Routine
 import com.cadence.fit.domain.model.RoutineExercise
 import com.cadence.fit.domain.model.WorkoutSession
+import com.cadence.fit.domain.progression.ProgressionEngine
 import com.cadence.fit.domain.units.Durations
 import com.cadence.fit.domain.units.Weights
 import com.cadence.fit.domain.units.WeightUnit
@@ -273,6 +274,7 @@ fun LoggerScreen(
                     sessions = state.sessions,
                     previousNowMs = sessionOpenedAt,
                     slot = current,
+                    trainingGoal = routine?.goal ?: state.profile.goal,
                     unit = unit,
                     onUnitChange = { selected ->
                         viewModel.saveSettings(settings.copy(weightUnit = selected))
@@ -480,6 +482,7 @@ private fun ExerciseLogger(
     sessions: List<WorkoutSession>,
     previousNowMs: Long,
     slot: LogSlot,
+    trainingGoal: com.cadence.fit.domain.model.TrainingGoal,
     unit: WeightUnit,
     onUnitChange: (WeightUnit) -> Unit,
     barWeight: Double,
@@ -493,6 +496,17 @@ private fun ExerciseLogger(
     val now = viewModel.nowMs()
     val previous = remember(session.id, slot.exerciseId, previousNowMs) {
         WorkoutLogger.previousPerformance(sessions, slot.exerciseId, previousNowMs)
+    }
+    val progression = remember(session.id, slot.exerciseId, sessions, unit) {
+        val routineExercise = slot.routineExercise
+        if (routineExercise == null) null else {
+            ProgressionEngine(viewModel.catalog).recommend(
+                routineExercise = routineExercise,
+                sessions = sessions,
+                goal = trainingGoal,
+                unit = unit,
+            )
+        }
     }
 
     var isWarmup by remember(slot.exerciseId) { mutableStateOf(false) }
@@ -554,6 +568,32 @@ private fun ExerciseLogger(
         }
         Spacer(Modifier.size(10.dp))
         PreviousRow(previous, unit)
+        progression?.let { recommendation ->
+            if (recommendation.suggestedWeightKg != null && !isWarmup) {
+                Spacer(Modifier.size(10.dp))
+                CadenceCard(
+                    onClick = {
+                        weightDisplay = unit.snap(unit.fromKilograms(recommendation.suggestedWeightKg))
+                        reps = recommendation.suggestedMinReps ?: slot.repRange.first
+                        editingSetId = null
+                    },
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("NEXT TIME", style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.size(3.dp))
+                            Text(recommendation.headline, style = MaterialTheme.typography.titleSmall)
+                            Text(recommendation.reason, style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        CadenceIcon(CadenceIcon.ChevronRight, size = 19.dp,
+                            tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+        }
         Spacer(Modifier.size(6.dp))
         Text(
             slot.exercise.primaryMuscles.joinToString(", ") { it.displayName } +
@@ -658,7 +698,17 @@ private fun ExerciseLogger(
                 selected = false,
                 onClick = { weightDisplay += unit.increment },
             )
-            FilterChip(
+            progression?.suggestedWeightKg?.let { suggestedWeight ->
+                FilterChip(
+                    label = "Next: ${Weights.format(suggestedWeight, unit)}",
+                    selected = false,
+                    onClick = {
+                        weightDisplay = unit.snap(unit.fromKilograms(suggestedWeight))
+                        reps = progression.suggestedMinReps ?: slot.repRange.first
+                        editingSetId = null
+                    },
+                )
+            } ?: FilterChip(
                 label = previous?.topWeightKg
                     ?.takeIf { it > 0.0 }
                     ?.let { "Last: ${Weights.format(it, unit)}" }

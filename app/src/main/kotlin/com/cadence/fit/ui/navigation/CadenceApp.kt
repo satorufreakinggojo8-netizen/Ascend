@@ -123,6 +123,7 @@ private data class BottomDestination(val route: String, val label: String, val i
 private val bottomDestinations = listOf(
     BottomDestination(Routes.HOME, "Home", CadenceIcon.Home),
     BottomDestination(Routes.PLAN, "Plan", CadenceIcon.Plan),
+    BottomDestination(Routes.SCHEDULE, "Week", CadenceIcon.Calendar),
     BottomDestination(Routes.LIBRARY, "Exercises", CadenceIcon.Book),
     BottomDestination(Routes.PROGRESS, "Progress", CadenceIcon.Progress),
     BottomDestination(Routes.BODY_MAP, "Body", CadenceIcon.Body),
@@ -159,7 +160,16 @@ fun CadenceApp(viewModel: CadenceViewModel) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route?.substringBefore('?')
-    val showsBottomBar = bottomDestinations.any { it.route == currentRoute }
+    val selectedTabRoute = when (currentRoute) {
+        Routes.SCHEDULE -> Routes.SCHEDULE
+        Routes.PLAN, Routes.ROUTINE_EDITOR, Routes.SPLITS -> Routes.PLAN
+        Routes.LIBRARY, Routes.EXERCISE -> Routes.LIBRARY
+        Routes.PROGRESS, Routes.HISTORY, Routes.SESSION, Routes.SUMMARY -> Routes.PROGRESS
+        Routes.BODY_MAP -> Routes.BODY_MAP
+        else -> Routes.HOME
+    }
+    val showsBottomBar = bottomDestinations.any { it.route == currentRoute } ||
+        currentRoute in setOf(Routes.ROUTINE_EDITOR, Routes.SPLITS, Routes.EXERCISE, Routes.HISTORY, Routes.SESSION, Routes.SUMMARY)
 
     val startDestination = remember {
         if (viewModel.state.value.profile.onboardingComplete) Routes.HOME else Routes.ONBOARDING
@@ -171,7 +181,7 @@ fun CadenceApp(viewModel: CadenceViewModel) {
         bottomBar = {
             if (showsBottomBar) {
                 CadenceBottomBar(
-                    currentRoute = currentRoute,
+                    currentRoute = selectedTabRoute,
                     onNavigate = { route ->
                         navController.navigate(route) {
                             popUpTo(Routes.HOME) { saveState = true }

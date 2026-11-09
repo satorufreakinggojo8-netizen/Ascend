@@ -1,6 +1,7 @@
 package com.cadence.fit.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -140,6 +141,12 @@ fun HomeScreen(
 
             WeekStripCard(model, onOpenSchedule)
 
+            QuickAccessRow(
+                onSchedule = onOpenSchedule,
+                onExercises = onOpenLibrary,
+                onProgress = onOpenProgress,
+            )
+
             if (model.summary.totalSessions == 0) {
                 EmptyState(
                     title = "Your first session starts the story",
@@ -243,6 +250,61 @@ private fun NextActionCard(action: NextAction, onAct: () -> Unit) {
             },
             onClick = onAct,
         )
+    }
+}
+
+@Composable
+private fun QuickAccessRow(
+    onSchedule: () -> Unit,
+    onExercises: () -> Unit,
+    onProgress: () -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        QuickAccessTile(
+            label = "Schedule",
+            icon = CadenceIcon.Calendar,
+            onClick = onSchedule,
+            modifier = Modifier.weight(1f),
+        )
+        QuickAccessTile(
+            label = "Exercises",
+            icon = CadenceIcon.Book,
+            onClick = onExercises,
+            modifier = Modifier.weight(1f),
+        )
+        QuickAccessTile(
+            label = "Progress",
+            icon = CadenceIcon.Progress,
+            onClick = onProgress,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun QuickAccessTile(
+    label: String,
+    icon: CadenceIcon,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    CadenceCard(modifier = modifier, onClick = onClick) {
+        Column(
+            Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            Box(
+                Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center,
+            ) {
+                CadenceIcon(icon, size = 19.dp, tint = MaterialTheme.colorScheme.primary)
+            }
+            Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        }
     }
 }
 
