@@ -21,21 +21,21 @@ import androidx.compose.ui.unit.sp
  * for readability in a dim gym as well as daylight.
  */
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF2E6B5E),
+    primary = Color(0xFF287A65),
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFCDE9E0),
+    primaryContainer = Color(0xFFD2EEE3),
     onPrimaryContainer = Color(0xFF07342C),
     secondary = Color(0xFF456B7C),
     onSecondary = Color(0xFFFFFFFF),
     secondaryContainer = Color(0xFFD3E5EF),
     onSecondaryContainer = Color(0xFF16323F),
-    tertiary = Color(0xFFB4633A),
+    tertiary = Color(0xFFB27643),
     onTertiary = Color(0xFFFFFFFF),
     tertiaryContainer = Color(0xFFF7DECF),
     onTertiaryContainer = Color(0xFF43210F),
-    background = Color(0xFFF6F7F4),
+    background = Color(0xFFF5F5F1),
     onBackground = Color(0xFF1A1C19),
-    surface = Color(0xFFFFFFFF),
+    surface = Color(0xFFFFFEFA),
     onSurface = Color(0xFF1A1C19),
     surfaceVariant = Color(0xFFECEFE9),
     onSurfaceVariant = Color(0xFF53574E),
@@ -46,9 +46,9 @@ private val LightColors = lightColorScheme(
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF8FD3C0),
+    primary = Color(0xFF9BE0C8),
     onPrimary = Color(0xFF08251F),
-    primaryContainer = Color(0xFF1F5046),
+    primaryContainer = Color(0xFF204E40),
     onPrimaryContainer = Color(0xFFCDE9E0),
     secondary = Color(0xFFA6C9DA),
     onSecondary = Color(0xFF10262F),
@@ -58,9 +58,9 @@ private val DarkColors = darkColorScheme(
     onTertiary = Color(0xFF3A1A0B),
     tertiaryContainer = Color(0xFF5D321D),
     onTertiaryContainer = Color(0xFFF7DECF),
-    background = Color(0xFF0E110E),
+    background = Color(0xFF10110F),
     onBackground = Color(0xFFE6E9E1),
-    surface = Color(0xFF171A15),
+    surface = Color(0xFF191A17),
     onSurface = Color(0xFFE6E9E1),
     surfaceVariant = Color(0xFF262B23),
     onSurfaceVariant = Color(0xFFC6CBBF),
@@ -85,7 +85,7 @@ data class CadenceTones(
 private val LightTones = CadenceTones(
     heatLow = Color(0xFFBFD8CE),
     heatMid = Color(0xFF74B3A0),
-    heatHigh = Color(0xFF2E6B5E),
+    heatHigh = Color(0xFF287A65),
     heatPeak = Color(0xFF1B4A40),
     heatEmpty = Color(0xFFE4E7E0),
     success = Color(0xFF2F6F4A),
@@ -116,10 +116,10 @@ data class CadenceGradients(
 )
 
 private val LightGradients = CadenceGradients(
-    hero = listOf(Color(0xFF092E27), Color(0xFF125244), Color(0xFF1E6F5C)),
-    heroGlow = Color(0xFFF0BE86),
+    hero = listOf(Color(0xFF10251F), Color(0xFF174437), Color(0xFF287A65)),
+    heroGlow = Color(0xFFE6BC76),
     heroContent = Color(0xFFF8F5EA),
-    primaryButton = listOf(Color(0xFF2A7161), Color(0xFF17483E)),
+    primaryButton = listOf(Color(0xFF31836B), Color(0xFF205642)),
 )
 
 private val DarkGradients = CadenceGradients(

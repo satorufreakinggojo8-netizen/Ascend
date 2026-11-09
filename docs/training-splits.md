@@ -10,15 +10,15 @@ The featured template is a six-training-day week with one rest day:
 
 | Day | Session | Working focus |
 | --- | --- | --- |
-| Monday | Shoulders & arms | Shoulders, biceps, triceps |
-| Tuesday | Legs | Quads, hamstrings, glutes, calves |
+| Monday | Legs | Quads, hamstrings, glutes, calves |
+| Tuesday | Arms | Shoulders, biceps, triceps |
 | Wednesday | Chest & back | Chest, lats, upper back, rear delts |
-| Thursday | Shoulders & arms | Shoulders, biceps, triceps |
-| Friday | Legs | Quads, hamstrings, glutes, calves |
+| Thursday | Legs | Quads, hamstrings, glutes, calves |
+| Friday | Arms | Shoulders, biceps, triceps |
 | Saturday | Chest & back | Chest, lats, upper back, rear delts |
 | Sunday | Rest | Recovery |
 
-Chest is deliberately **not** scheduled on Monday. The two shoulder-and-arm days and
+Monday starts with legs, Tuesday is arms, and chest & back begins Wednesday. Chest is deliberately **not** scheduled on Monday.The two arms days and
 the two chest-and-back days rotate exercise choice, so they are not identical sessions.
 
 ## Other templates
