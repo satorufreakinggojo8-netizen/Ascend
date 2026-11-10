@@ -569,11 +569,12 @@ private fun ExerciseLogger(
         Spacer(Modifier.size(10.dp))
         PreviousRow(previous, unit)
         progression?.let { recommendation ->
-            if (recommendation.suggestedWeightKg != null && !isWarmup) {
+            val recommendedWeightKg = recommendation.suggestedWeightKg
+            if (recommendedWeightKg != null && !isWarmup) {
                 Spacer(Modifier.size(10.dp))
                 CadenceCard(
                     onClick = {
-                        weightDisplay = unit.snap(unit.fromKilograms(recommendation.suggestedWeightKg))
+                        weightDisplay = unit.snap(unit.fromKilograms(recommendedWeightKg))
                         reps = recommendation.suggestedMinReps ?: slot.repRange.first
                         editingSetId = null
                     },
@@ -698,16 +699,18 @@ private fun ExerciseLogger(
                 selected = false,
                 onClick = { weightDisplay += unit.increment },
             )
-            progression?.suggestedWeightKg?.let { suggestedWeight ->
-                FilterChip(
-                    label = "Next: ${Weights.format(suggestedWeight, unit)}",
-                    selected = false,
-                    onClick = {
-                        weightDisplay = unit.snap(unit.fromKilograms(suggestedWeight))
-                        reps = progression.suggestedMinReps ?: slot.repRange.first
-                        editingSetId = null
-                    },
-                )
+            progression?.let { recommendation ->
+                recommendation.suggestedWeightKg?.let { suggestedWeight ->
+                    FilterChip(
+                        label = "Next: ${Weights.format(suggestedWeight, unit)}",
+                        selected = false,
+                        onClick = {
+                            weightDisplay = unit.snap(unit.fromKilograms(suggestedWeight))
+                            reps = recommendation.suggestedMinReps ?: slot.repRange.first
+                            editingSetId = null
+                        },
+                    )
+                }
             } ?: FilterChip(
                 label = previous?.topWeightKg
                     ?.takeIf { it > 0.0 }
